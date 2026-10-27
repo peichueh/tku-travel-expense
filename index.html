@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>淡江國內出差報帳 (115年版 by PeiChueh)</title>
+    <title>化材系國內出差報帳 (2026/10版 by Pei)</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.49.1/build/docxtemplater.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
   </head>
-  <body class="bg-slate-100">
+  <body class="bg-amber-50/40 min-h-screen text-slate-700 antialiased selection:bg-amber-200">
     <div id="root"></div>
 
     <script type="text/babel">
@@ -191,7 +191,7 @@
 
         // 產生文件主流程
         const generateDocs = async () => {
-          if (!formData.name) return alert("請輸入姓名後再產生文件。");
+          if (!formData.name) return alert("請輸入姓名後再產生文件！🌸");
 
           // 1. 產生主表資料 (國內出差旅費申報單: travel_template.docx)
           const mainData = {
@@ -250,75 +250,98 @@
         };
 
         return (
-          <div className="max-w-7xl mx-auto p-4 md:p-8 bg-white shadow-2xl my-6 md:my-10 rounded-3xl border-t-8 border-blue-900">
-            <h1 className="text-2xl md:text-3xl font-black text-blue-900 mb-8 text-center uppercase tracking-widest">
-              淡江大學國內出差報帳{" "}
-              <span className="text-blue-500 font-light">115年 @pei</span>
-            </h1>
+          <div className="max-w-6xl mx-auto p-4 md:p-8 my-6 md:my-10">
+            {/* 頂部俏皮標題卡片 */}
+            <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-amber-900/5 border-2 border-amber-200/80 mb-8 relative overflow-hidden text-center">
+              <div className="absolute top-2 left-6 text-3xl opacity-20 select-none">✈️</div>
+              <div className="absolute top-4 right-8 text-3xl opacity-20 select-none">🧳</div>
+              <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-800 text-xs font-black px-4 py-1.5 rounded-full mb-3 tracking-wider">
+                <span>🌟 淡江大學 化學工程與材料工程學系</span>
+              </div>
+              <h1 className="text-2xl md:text-4xl font-black text-slate-800 tracking-tight flex items-center justify-center gap-3">
+                <span>國內出差報帳小幫手</span>
+                <span className="text-sm bg-rose-500 text-white font-bold px-3 py-1 rounded-2xl shadow-sm rotate-2">
+                  2026/10版 @Pei
+                </span>
+              </h1>
+              <p className="text-slate-400 text-xs mt-2 font-medium">
+                輕鬆填寫出差行程・自動計算金額上限・一鍵產出正式報表
+              </p>
+            </div>
 
             {/* 基本資料卡片 */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 bg-slate-50 p-6 rounded-2xl border border-slate-200">
-              <div className="flex flex-col">
-                <label className="text-xs font-black text-slate-500 mb-2 ml-1">
-                  姓名 (必填)
-                </label>
-                <input
-                  className="border-2 p-3 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none border-white shadow-sm"
-                  placeholder="輸入姓名"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                />
+            <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-amber-900/5 border-2 border-amber-100 mb-8">
+              <div className="flex items-center gap-2 font-black text-amber-700 text-base mb-5 pb-3 border-b border-amber-100">
+                <span className="text-xl">👤</span> 出差基本資料
               </div>
-              <div className="flex flex-col">
-                <label className="text-xs font-black text-slate-500 mb-2 ml-1">
-                  身份類別
-                </label>
-                <select
-                  className="border-2 p-3 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none border-white shadow-sm appearance-none"
-                  value={formData.type}
-                  onChange={(e) =>
-                    setFormData({ ...formData, type: e.target.value })
-                  }
-                >
-                  <option>教職員工生</option>
-                  <option>校外專家</option>
-                </select>
-              </div>
-              <div className="flex flex-col">
-                <label className="text-xs font-black text-slate-500 mb-2 ml-1">
-                  出差事由
-                </label>
-                <input
-                  className="border-2 p-3 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none border-white shadow-sm"
-                  placeholder="例如: 2026 化工年會"
-                  value={formData.reason}
-                  onChange={(e) =>
-                    setFormData({ ...formData, reason: e.target.value })
-                  }
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="flex flex-col">
+                  <label className="text-xs font-black text-slate-500 mb-2 ml-1 flex items-center gap-1">
+                    <span>姓名</span>
+                    <span className="text-rose-500 text-sm">*</span>
+                  </label>
+                  <input
+                    className="border-2 border-slate-100 bg-amber-50/20 p-3 rounded-2xl focus:border-amber-400 focus:bg-white outline-none transition font-medium"
+                    placeholder="請輸入姓名"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-xs font-black text-slate-500 mb-2 ml-1">
+                    身分類別
+                  </label>
+                  <div className="relative">
+                    <select
+                      className="w-full border-2 border-slate-100 bg-amber-50/20 p-3 rounded-2xl focus:border-amber-400 focus:bg-white outline-none transition font-medium appearance-none cursor-pointer"
+                      value={formData.type}
+                      onChange={(e) =>
+                        setFormData({ ...formData, type: e.target.value })
+                      }
+                    >
+                      <option>教職員工生</option>
+                      <option>校外專家</option>
+                    </select>
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-xs">▼</span>
+                  </div>
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-xs font-black text-slate-500 mb-2 ml-1">
+                    出差事由
+                  </label>
+                  <input
+                    className="border-2 border-slate-100 bg-amber-50/20 p-3 rounded-2xl focus:border-amber-400 focus:bg-white outline-none transition font-medium"
+                    placeholder="例如: 2026 化工年會發表"
+                    value={formData.reason}
+                    onChange={(e) =>
+                      setFormData({ ...formData, reason: e.target.value })
+                    }
+                  />
+                </div>
               </div>
             </div>
 
-            {/* 註冊費與會議明細卡片 (位於 Day 1 行程清單正上方) */}
-            <div className="mb-8 bg-blue-50/60 p-6 rounded-2xl border border-blue-100">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-blue-100/70">
+            {/* 註冊費與會議明細卡片 (Day 1 行程清單正上方) */}
+            <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-3xl p-6 md:p-7 shadow-lg shadow-orange-900/5 border-2 border-orange-200/80 mb-8 relative">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-orange-200/60">
                 <div>
-                  <h3 className="text-sm font-black text-blue-900 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-blue-600 inline-block"></span>
-                    其他經費支出：學術會議 / 研討會註冊費
+                  <h3 className="text-base font-black text-orange-950 flex items-center gap-2">
+                    <span className="text-xl">🎓</span>
+                    <span>學術會議 / 研討會註冊費</span>
+                    <span className="bg-orange-200 text-orange-800 text-[10px] font-bold px-2 py-0.5 rounded-full">選填</span>
                   </h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    若本次出差含有學術會議註冊費，請輸入金額與會議名稱（無則填 0 或留空）。
+                  <p className="text-xs text-orange-700/80 mt-1">
+                    若有報名研討會並需報支註冊費請填寫，系統會自動下載專用申報單唷！
                   </p>
                 </div>
-                <div className="flex items-center bg-white px-4 py-2.5 rounded-xl border border-blue-200 shadow-sm w-full sm:w-auto justify-end">
-                  <span className="text-slate-400 font-bold mr-2 text-sm">NT$</span>
+                <div className="flex items-center bg-white px-4 py-2.5 rounded-2xl border-2 border-orange-200 shadow-sm w-full sm:w-auto justify-end">
+                  <span className="text-orange-400 font-black mr-2 text-sm">NT$</span>
                   <input
                     type="number"
                     min="0"
-                    className="w-32 outline-none text-right font-mono font-bold text-blue-900 text-lg bg-transparent"
+                    className="w-32 outline-none text-right font-mono font-black text-orange-600 text-xl bg-transparent"
                     placeholder="0"
                     value={formData.regFee}
                     onChange={(e) =>
@@ -331,11 +354,11 @@
               {/* 主辦單位與會議名稱輸入區 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col">
-                  <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">
-                    主辦單位
+                  <label className="text-xs font-black text-orange-900/70 mb-1.5 ml-1">
+                    主辦單位名稱
                   </label>
                   <input
-                    className="border p-2.5 rounded-xl bg-white focus:ring-2 focus:ring-blue-200 outline-none border-blue-100 text-sm placeholder:text-slate-300"
+                    className="border-2 border-orange-100 p-2.5 rounded-2xl bg-white focus:border-orange-400 outline-none text-sm transition font-medium placeholder:text-slate-300"
                     placeholder="例如: 台灣化學工程學會"
                     value={formData.regOrganizer}
                     onChange={(e) =>
@@ -344,12 +367,12 @@
                   />
                 </div>
                 <div className="flex flex-col">
-                  <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">
-                    會議名稱
+                  <label className="text-xs font-black text-orange-900/70 mb-1.5 ml-1">
+                    研討會 / 會議全名
                   </label>
                   <input
-                    className="border p-2.5 rounded-xl bg-white focus:ring-2 focus:ring-blue-200 outline-none border-blue-100 text-sm placeholder:text-slate-300"
-                    placeholder="例如: 2026 化學工程年會暨專題研討會"
+                    className="border-2 border-orange-100 p-2.5 rounded-2xl bg-white focus:border-orange-400 outline-none text-sm transition font-medium placeholder:text-slate-300"
+                    placeholder="例如: 2026 化工年會暨專題研討會"
                     value={formData.regConfName}
                     onChange={(e) =>
                       setFormData({ ...formData, regConfName: e.target.value })
@@ -363,42 +386,51 @@
             {formData.items.map((item, idx) => (
               <div
                 key={item.id}
-                className="mb-10 bg-white border-2 border-slate-100 rounded-2xl overflow-hidden shadow-xl shadow-slate-200/50"
+                className="mb-8 bg-white rounded-3xl overflow-hidden shadow-xl shadow-amber-900/5 border-2 border-amber-100 transition-all"
               >
-                <div className="bg-blue-900 text-white px-6 py-3 flex justify-between items-center">
-                  <span className="font-black tracking-wider">
-                    Day {idx + 1} 行程清單
-                  </span>
-                  <button
-                    onClick={() => removeItem(idx)}
-                    className="bg-red-500/20 hover:bg-red-500 text-red-200 hover:text-white px-3 py-1 rounded-lg text-xs transition font-bold"
-                  >
-                    刪除整日
-                  </button>
+                {/* 行程卡片 Header */}
+                <div className="bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-300 px-6 py-4 flex justify-between items-center text-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-white/80 w-8 h-8 rounded-2xl flex items-center justify-center font-black text-amber-800 shadow-sm text-sm">
+                      D{idx + 1}
+                    </span>
+                    <span className="font-black text-base tracking-wide">
+                      第 {idx + 1} 天行程與交通
+                    </span>
+                  </div>
+                  {formData.items.length > 1 && (
+                    <button
+                      onClick={() => removeItem(idx)}
+                      className="bg-white/70 hover:bg-rose-500 hover:text-white text-rose-600 px-3 py-1.5 rounded-xl text-xs transition font-black flex items-center gap-1 shadow-sm"
+                    >
+                      <span>🗑️ 刪除此日</span>
+                    </button>
+                  )}
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* 交通分段表格 */}
+                <div className="overflow-x-auto p-2">
                   <table className="w-full text-sm text-left">
                     <thead>
-                      <tr className="bg-slate-50 text-slate-400 font-black border-b border-slate-100">
-                        <th className="p-4 w-28 text-center">月 / 日</th>
-                        <th className="p-4">起點</th>
-                        <th className="p-4">迄點</th>
-                        <th className="p-4">交通車別</th>
-                        <th className="p-4 w-32">金額</th>
-                        <th className="p-4 w-12"></th>
+                      <tr className="text-slate-400 font-black text-xs border-b border-slate-100">
+                        <th className="p-3 w-28 text-center">📅 月 / 日</th>
+                        <th className="p-3">🚩 起點</th>
+                        <th className="p-3">🏁 迄點</th>
+                        <th className="p-3">🚄 交通車別</th>
+                        <th className="p-3 w-32">💵 金額</th>
+                        <th className="p-3 w-10"></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50">
+                    <tbody className="divide-y divide-slate-100">
                       {item.transports.map((t, tIdx) => (
                         <tr
                           key={tIdx}
-                          className="hover:bg-blue-50/30 transition-colors"
+                          className="hover:bg-amber-50/50 transition-colors group"
                         >
-                          <td className="p-4">
-                            <div className="flex gap-1 justify-center items-center">
+                          <td className="p-3">
+                            <div className="flex gap-1 justify-center items-center bg-slate-50 px-2 py-1 rounded-xl border border-slate-200/80">
                               <input
-                                className="w-10 border-b-2 border-slate-200 text-center focus:border-blue-500 outline-none"
+                                className="w-8 bg-transparent text-center focus:font-bold outline-none font-mono"
                                 placeholder="M"
                                 value={t.m}
                                 onChange={(e) =>
@@ -412,7 +444,7 @@
                               />
                               <span className="text-slate-300">/</span>
                               <input
-                                className="w-10 border-b-2 border-slate-200 text-center focus:border-blue-500 outline-none"
+                                className="w-8 bg-transparent text-center focus:font-bold outline-none font-mono"
                                 placeholder="D"
                                 value={t.d}
                                 onChange={(e) =>
@@ -426,10 +458,10 @@
                               />
                             </div>
                           </td>
-                          <td className="p-4">
+                          <td className="p-3">
                             <input
-                              className="w-full border-b-2 border-slate-200 focus:border-blue-500 outline-none bg-transparent"
-                              placeholder="輸入起點"
+                              className="w-full border-b border-dashed border-slate-200 focus:border-amber-400 outline-none bg-transparent p-1 font-medium transition"
+                              placeholder="例如: 淡水"
                               value={t.startLoc}
                               onChange={(e) =>
                                 updateTransportField(
@@ -441,10 +473,10 @@
                               }
                             />
                           </td>
-                          <td className="p-4">
+                          <td className="p-3">
                             <input
-                              className="w-full border-b-2 border-slate-200 focus:border-blue-500 outline-none bg-transparent"
-                              placeholder="輸入迄點"
+                              className="w-full border-b border-dashed border-slate-200 focus:border-amber-400 outline-none bg-transparent p-1 font-medium transition"
+                              placeholder="例如: 台中"
                               value={t.endLoc}
                               onChange={(e) =>
                                 updateTransportField(
@@ -456,10 +488,10 @@
                               }
                             />
                           </td>
-                          <td className="p-4">
+                          <td className="p-3">
                             <input
-                              className="w-full border-b-2 border-slate-200 focus:border-blue-500 outline-none bg-transparent"
-                              placeholder="高鐵/計程車"
+                              className="w-full border-b border-dashed border-slate-200 focus:border-amber-400 outline-none bg-transparent p-1 font-medium transition"
+                              placeholder="高鐵 / 計程車 / 台鐵"
                               value={t.type}
                               onChange={(e) =>
                                 updateTransportField(
@@ -471,11 +503,11 @@
                               }
                             />
                           </td>
-                          <td className="p-4">
-                            <div className="flex items-center">
-                              <span className="text-slate-400 mr-1">$</span>
+                          <td className="p-3">
+                            <div className="flex items-center bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200/80">
+                              <span className="text-slate-400 mr-1 text-xs">$</span>
                               <input
-                                className="w-full border-b-2 border-slate-200 focus:border-blue-500 outline-none bg-transparent text-right font-mono"
+                                className="w-full bg-transparent outline-none text-right font-mono font-black text-slate-700"
                                 type="number"
                                 value={t.amt}
                                 onChange={(e) =>
@@ -489,13 +521,16 @@
                               />
                             </div>
                           </td>
-                          <td className="p-4 text-center">
-                            <button
-                              onClick={() => removeTransportSegment(idx, tIdx)}
-                              className="text-slate-300 hover:text-red-500 transition-colors font-bold text-lg"
-                            >
-                              ×
-                            </button>
+                          <td className="p-3 text-center">
+                            {item.transports.length > 1 && (
+                              <button
+                                onClick={() => removeTransportSegment(idx, tIdx)}
+                                className="text-slate-300 hover:text-rose-500 transition-colors font-bold text-lg leading-none"
+                                title="刪除此段"
+                              >
+                                ✕
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -503,18 +538,20 @@
                   </table>
                 </div>
 
-                <div className="p-6 bg-slate-50 border-t border-slate-100 flex flex-col md:flex-row gap-6 items-center justify-between">
+                {/* 住宿、雜費與單日小計 */}
+                <div className="p-5 bg-amber-50/30 border-t border-amber-100 flex flex-col md:flex-row gap-5 items-center justify-between">
                   <button
                     onClick={() => addTransportSegment(idx)}
-                    className="flex items-center gap-2 bg-white text-blue-600 border border-blue-200 px-4 py-2 rounded-xl text-xs font-black shadow-sm hover:shadow-md hover:bg-blue-600 hover:text-white transition-all"
+                    className="flex items-center gap-1.5 bg-white text-amber-800 border-2 border-amber-200 hover:border-amber-300 hover:bg-amber-100 px-4 py-2 rounded-2xl text-xs font-black shadow-sm transition active:scale-95"
                   >
-                    <span>+</span> 增加分段交通 (同日)
+                    <span>➕ 增加同日接續交通</span>
                   </button>
-                  <div className="flex flex-wrap gap-6 items-center bg-white p-3 rounded-2xl shadow-inner border border-slate-100">
-                    <label className="text-xs font-black text-slate-400 uppercase">
-                      住宿費{" "}
+
+                  <div className="flex flex-wrap gap-4 items-center bg-white px-5 py-3 rounded-2xl shadow-sm border border-amber-100">
+                    <label className="text-xs font-black text-slate-500 flex items-center">
+                      <span className="mr-1.5">🏨 住宿費</span>
                       <input
-                        className="w-20 border-b border-slate-300 ml-2 p-1 text-right text-blue-600 outline-none focus:border-blue-600"
+                        className="w-20 border-b-2 border-amber-200 ml-1 p-1 text-right font-mono font-bold text-amber-700 outline-none focus:border-amber-500"
                         type="number"
                         value={item.hotel}
                         onChange={(e) =>
@@ -522,21 +559,23 @@
                         }
                       />
                     </label>
-                    <label className="text-xs font-black text-slate-400 flex items-center cursor-pointer select-none">
+
+                    <label className="text-xs font-black text-slate-600 flex items-center cursor-pointer select-none bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-xl border border-amber-200 transition">
                       <input
-                        className="mr-2 w-4 h-4 rounded-full accent-blue-600"
+                        className="mr-2 w-4 h-4 rounded-lg accent-amber-500 cursor-pointer"
                         type="checkbox"
                         checked={item.isHoliday}
                         onChange={(e) =>
                           updateItemField(idx, "isHoliday", e.target.checked)
                         }
-                      />{" "}
-                      假日 (平日上限 3500 / 假日 4500)
+                      />
+                      <span>假日上限 $4,500</span>
                     </label>
-                    <label className="text-xs font-black text-slate-400 uppercase">
-                      雜費{" "}
+
+                    <label className="text-xs font-black text-slate-500 flex items-center">
+                      <span className="mr-1.5">☕ 雜費</span>
                       <input
-                        className="w-20 border-b border-slate-300 ml-2 p-1 text-right text-blue-600 outline-none focus:border-blue-600"
+                        className="w-16 border-b-2 border-amber-200 ml-1 p-1 text-right font-mono font-bold text-amber-700 outline-none focus:border-amber-500"
                         type="number"
                         value={item.daily}
                         onChange={(e) =>
@@ -545,51 +584,60 @@
                       />
                     </label>
                   </div>
-                  <div className="text-xl font-black text-blue-900 border-l-4 border-blue-900 pl-4">
-                    小計{" "}
-                    <span className="text-blue-600">
+
+                  <div className="text-right">
+                    <span className="text-xs font-black text-slate-400 block mb-0.5">DAY 小計</span>
+                    <span className="text-2xl font-black text-amber-600 font-mono">
                       ${calculateItemSubtotal(item)}
                     </span>
                   </div>
                 </div>
               </div>
             ))}
+
+            {/* 新增一日按鈕 */}
             <button
               onClick={addItem}
-              className="w-full py-4 border-4 border-dashed border-slate-200 rounded-3xl text-slate-400 font-black hover:bg-white hover:border-blue-200 hover:text-blue-500 transition-all duration-300 mb-10 group"
+              className="w-full py-4 border-2 border-dashed border-amber-300 rounded-3xl text-amber-700 font-black hover:bg-amber-100/50 hover:border-amber-400 transition-all duration-300 mb-10 flex items-center justify-center gap-2 shadow-sm group active:scale-[0.99]"
             >
-              <span className="text-2xl group-hover:scale-125 inline-block transition-transform">
-                +
-              </span>{" "}
-              新增另一日行程
+              <span className="text-xl group-hover:rotate-90 transition-transform">➕</span>
+              <span>新增下一天出差行程</span>
             </button>
 
             {/* 底部總覽卡片 */}
-            <div className="bg-gradient-to-br from-blue-900 to-indigo-900 p-8 rounded-3xl flex flex-col md:flex-row justify-between items-center shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32"></div>
+            <div className="bg-gradient-to-br from-amber-400 via-orange-400 to-rose-400 p-8 rounded-3xl flex flex-col md:flex-row justify-between items-center shadow-xl shadow-orange-900/10 text-white relative overflow-hidden">
               <div className="relative z-10 text-center md:text-left mb-6 md:mb-0">
-                <p className="text-blue-200 text-sm font-bold tracking-widest mb-1 uppercase">
-                  Total Reimbursement
-                </p>
-                <p className="text-5xl font-black text-white tracking-tighter">
-                  <span className="text-yellow-400 mr-2">NT$</span>
-                  {totals.grandTotal}
-                </p>
-                <p className="text-blue-300 text-xs mt-2 font-bold tracking-widest">
-                  目前共累積 {totals.totalDays} 日出差數據
+                <div className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold tracking-wider mb-2">
+                  <span>✨ 總支出試算 (含註冊費)</span>
+                </div>
+                <div className="flex items-baseline justify-center md:justify-start gap-1">
+                  <span className="text-2xl font-black text-amber-100">NT$</span>
+                  <span className="text-5xl md:text-6xl font-black tracking-tight font-mono drop-shadow-sm">
+                    {totals.grandTotal}
+                  </span>
+                </div>
+                <p className="text-white/80 text-xs mt-2 font-medium">
+                  目前已為您規劃累計 {totals.totalDays} 日的出差行程明細
                 </p>
               </div>
+
               <button
                 onClick={generateDocs}
-                className="relative z-10 bg-yellow-400 text-blue-900 px-12 py-5 rounded-2xl font-black text-xl hover:bg-yellow-300 active:scale-95 transition-all shadow-[0_10px_0_rgb(202,138,4)] hover:shadow-[0_5px_0_rgb(202,138,4)] active:shadow-none active:translate-y-1"
+                className="relative z-10 bg-white text-orange-600 hover:text-orange-700 px-10 py-5 rounded-2xl font-black text-xl hover:bg-amber-50 active:scale-95 transition-all shadow-lg hover:shadow-xl flex items-center gap-2 group cursor-pointer"
               >
-                產生正式 Word 報表
+                <span>產生正式 Word 報表</span>
+                <span className="group-hover:translate-x-1 transition-transform">📄</span>
               </button>
             </div>
-            <div className="mt-8 p-4 text-center">
-              <p className="text-slate-400 text-[10px] font-bold tracking-widest italic">
-                ※ 提示：若交通工具欄位包含「計程車」字樣，或填有「註冊費」，系統將自動額外下載對應的專用表單。
-              </p>
+
+            {/* 底部貼心提示 */}
+            <div className="mt-8 text-center">
+              <div className="inline-flex items-center gap-2 bg-white/80 px-5 py-2.5 rounded-full border border-amber-200/80 text-amber-800 text-xs font-medium shadow-sm">
+                <span>💡</span>
+                <span>
+                  貼心小提示：交通若填寫「計程車」或有填寫「註冊費」，系統會自動同時下載專用表格喔！
+                </span>
+              </div>
             </div>
           </div>
         );
