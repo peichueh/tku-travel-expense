@@ -16,31 +16,64 @@
     <div id="root"></div>
 
     <script type="text/babel">
-      const { useState, useMemo } = React;
+      const { useState, useMemo, useEffect } = React;
+
+      // 預設空白表單狀態
+      const DEFAULT_FORM_DATA = {
+        unit: "化學工程與材料工程學系",
+        name: "",
+        idNumber: "",      // 學號 / 人員代號
+        type: "教職員工生",
+        reason: "",
+        regFee: 0,
+        regOrganizer: "",  // 主辦單位
+        regConfName: "",   // 會議全名
+        regPaperTitle: "", // 發表論文題目
+        regConfStartM: "", // 會議開始月
+        regConfStartD: "", // 會議開始日
+        regConfEndM: "",   // 會議結束月
+        regConfEndD: "",   // 會議結束日
+        items: [
+          {
+            id: Date.now(),
+            hotel: 0,
+            daily: 0,
+            isHoliday: false,
+            transports: [
+              { m: "", d: "", startLoc: "", endLoc: "", type: "", amt: 0 },
+            ],
+          },
+        ],
+      };
 
       function App() {
-        const [formData, setFormData] = useState({
-          unit: "化學工程與材料工程學系",
-          name: "",
-          idNumber: "",      // 學號 / 人員代號
-          type: "教職員工生",
-          reason: "",
-          regFee: 0,
-          regOrganizer: "",  // 主辦單位
-          regConfName: "",   // 會議名稱
-          regPaperTitle: "", // 發表論文題目
-          items: [
-            {
-              id: Date.now(),
-              hotel: 0,
-              daily: 0,
-              isHoliday: false,
-              transports: [
-                { m: "", d: "", startLoc: "", endLoc: "", type: "", amt: 0 },
-              ],
-            },
-          ],
+        // 從 localStorage 讀取先前填寫的資料
+        const [formData, setFormData] = useState(() => {
+          try {
+            const saved = localStorage.getItem("TKU_DOMESTIC_EXPENSE_DATA");
+            return saved ? JSON.parse(saved) : DEFAULT_FORM_DATA;
+          } catch (e) {
+            console.error("讀取本地儲存失敗", e);
+            return DEFAULT_FORM_DATA;
+          }
         });
+
+        // 當 formData 變動時，即時寫入 localStorage
+        useEffect(() => {
+          try {
+            localStorage.setItem("TKU_DOMESTIC_EXPENSE_DATA", JSON.stringify(formData));
+          } catch (e) {
+            console.error("寫入本地儲存失敗", e);
+          }
+        }, [formData]);
+
+        // 清除重填功能
+        const resetForm = () => {
+          if (confirm("確定要清除目前已填寫的所有國內出差資料，重新填寫嗎？")) {
+            localStorage.removeItem("TKU_DOMESTIC_EXPENSE_DATA");
+            setFormData(DEFAULT_FORM_DATA);
+          }
+        };
 
         // 計算單日總計 (交通加總 + 住宿與雜費)
         const calculateItemSubtotal = (item) => {
@@ -242,6 +275,10 @@
           // 3. 自動偵測是否有註冊費支出，若有則下載註冊費申報單 (Registration_template.docx)
           const regFeeAmt = parseFloat(formData.regFee) || 0;
           if (regFeeAmt > 0) {
+            const confPeriodStr = (formData.regConfStartM && formData.regConfStartD)
+              ? `${formData.regConfStartM}/${formData.regConfStartD} - ${formData.regConfEndM}/${formData.regConfEndD}`
+              : "";
+
             const registrationData = {
               type: formData.type,
               name: formData.name,
@@ -249,6 +286,11 @@
               regOrganizer: formData.regOrganizer || "",
               regConfName: formData.regConfName || "",
               regPaperTitle: formData.regPaperTitle || "",
+              reg_conf_start_m: formData.regConfStartM || "",
+              reg_conf_start_d: formData.regConfStartD || "",
+              reg_conf_end_m: formData.regConfEndM || "",
+              reg_conf_end_d: formData.regConfEndD || "",
+              reg_conf_period: confPeriodStr,
               regFee: regFeeAmt,
             };
             await renderDoc("./public/Registration_template.docx", registrationData);
@@ -276,10 +318,23 @@
               </a>
             </div>
 
-            {/* 頂部俏皮標題卡片 */}
+            {/* 頂部俏皮標題卡片 (右上角附帶：自動儲存中徽章與清除重填按鈕) */}
             <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-amber-900/5 border-2 border-amber-200/80 mb-8 relative overflow-hidden text-center">
-              <div className="absolute top-2 left-6 text-3xl opacity-20 select-none">✈️</div>
-              <div className="absolute top-4 right-8 text-3xl opacity-20 select-none">🧳</div>
+              <div className="absolute top-4 right-4 flex items-center gap-2">
+                <span className="text-[11px] font-bold text-amber-700 bg-amber-100/80 px-2.5 py-1 rounded-full border border-amber-200 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  自動記憶中
+                </span>
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="text-xs bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-500 font-bold px-3 py-1 rounded-full transition border border-slate-200 cursor-pointer"
+                  title="清空表單已填寫內容"
+                >
+                  🧹 清除重填
+                </button>
+              </div>
+
               <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-800 text-xs font-black px-4 py-1.5 rounded-full mb-3 tracking-wider">
                 <span>🌟 淡江大學 化學工程與材料工程學系</span>
               </div>
@@ -290,7 +345,7 @@
                 </span>
               </h1>
               <p className="text-slate-400 text-xs mt-2 font-medium">
-                輕鬆填寫出差行程・自動計算金額上限・一鍵產出正式報表
+                輕鬆填寫出差行程・自動計算金額上限・瀏覽器自動記憶進度・一鍵產出正式報表
               </p>
             </div>
 
@@ -361,7 +416,7 @@
               </div>
             </div>
 
-            {/* 註冊費與會議明細卡片 (Day 1 行程清單正上方) */}
+            {/* 註冊費與會議明細卡片 (含 會議日期 月/日 - 月/日) */}
             <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-3xl p-6 md:p-7 shadow-lg shadow-orange-900/5 border-2 border-orange-200/80 mb-8 relative">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-orange-200/60">
                 <div>
@@ -389,8 +444,8 @@
                 </div>
               </div>
 
-              {/* 主辦單位、會議名稱與論文題目輸入區 */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* 主辦單位、會議名稱、論文題目與會議日期 (四欄排版) */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="flex flex-col">
                   <label className="text-xs font-black text-orange-900/70 mb-1.5 ml-1">
                     主辦單位名稱
@@ -430,6 +485,52 @@
                     }
                   />
                 </div>
+                <div className="flex flex-col">
+                  <label className="text-xs font-black text-orange-900/70 mb-1.5 ml-1 flex items-center gap-1">
+                    <span>📅 會議日期 (月/日 - 月/日)</span>
+                  </label>
+                  <div className="flex items-center gap-1.5 bg-white/70 p-1.5 rounded-2xl border-2 border-orange-100">
+                    <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-xl border border-orange-200">
+                      <input
+                        className="w-8 text-center text-sm font-mono outline-none"
+                        placeholder="M"
+                        value={formData.regConfStartM}
+                        onChange={(e) =>
+                          setFormData({ ...formData, regConfStartM: e.target.value })
+                        }
+                      />
+                      <span className="text-slate-300">/</span>
+                      <input
+                        className="w-8 text-center text-sm font-mono outline-none"
+                        placeholder="D"
+                        value={formData.regConfStartD}
+                        onChange={(e) =>
+                          setFormData({ ...formData, regConfStartD: e.target.value })
+                        }
+                      />
+                    </div>
+                    <span className="text-slate-400 font-bold px-0.5">-</span>
+                    <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-xl border border-orange-200">
+                      <input
+                        className="w-8 text-center text-sm font-mono outline-none"
+                        placeholder="M"
+                        value={formData.regConfEndM}
+                        onChange={(e) =>
+                          setFormData({ ...formData, regConfEndM: e.target.value })
+                        }
+                      />
+                      <span className="text-slate-300">/</span>
+                      <input
+                        className="w-8 text-center text-sm font-mono outline-none"
+                        placeholder="D"
+                        value={formData.regConfEndD}
+                        onChange={(e) =>
+                          setFormData({ ...formData, regConfEndD: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -452,7 +553,7 @@
                   {formData.items.length > 1 && (
                     <button
                       onClick={() => removeItem(idx)}
-                      className="bg-white/70 hover:bg-rose-500 hover:text-white text-rose-600 px-3 py-1.5 rounded-xl text-xs transition font-black flex items-center gap-1 shadow-sm"
+                      className="bg-white/70 hover:bg-rose-500 hover:text-white text-rose-600 px-3 py-1.5 rounded-xl text-xs transition font-black flex items-center gap-1 shadow-sm cursor-pointer"
                     >
                       <span>🗑️ 刪除此日</span>
                     </button>
@@ -576,7 +677,7 @@
                             {item.transports.length > 1 && (
                               <button
                                 onClick={() => removeTransportSegment(idx, tIdx)}
-                                className="text-slate-300 hover:text-rose-500 transition-colors font-bold text-lg leading-none"
+                                className="text-slate-300 hover:text-rose-500 transition-colors font-bold text-lg leading-none cursor-pointer"
                                 title="刪除此段"
                               >
                                 ✕
@@ -593,7 +694,7 @@
                 <div className="p-5 bg-amber-50/30 border-t border-amber-100 flex flex-col md:flex-row gap-5 items-center justify-between">
                   <button
                     onClick={() => addTransportSegment(idx)}
-                    className="flex items-center gap-1.5 bg-white text-amber-800 border-2 border-amber-200 hover:border-amber-300 hover:bg-amber-100 px-4 py-2 rounded-2xl text-xs font-black shadow-sm transition active:scale-95"
+                    className="flex items-center gap-1.5 bg-white text-amber-800 border-2 border-amber-200 hover:border-amber-300 hover:bg-amber-100 px-4 py-2 rounded-2xl text-xs font-black shadow-sm transition active:scale-95 cursor-pointer"
                   >
                     <span>➕ 增加同日接續交通</span>
                   </button>
@@ -649,7 +750,7 @@
             {/* 新增一日按鈕 */}
             <button
               onClick={addItem}
-              className="w-full py-4 border-2 border-dashed border-amber-300 rounded-3xl text-amber-700 font-black hover:bg-amber-100/50 hover:border-amber-400 transition-all duration-300 mb-10 flex items-center justify-center gap-2 shadow-sm group active:scale-[0.99]"
+              className="w-full py-4 border-2 border-dashed border-amber-300 rounded-3xl text-amber-700 font-black hover:bg-amber-100/50 hover:border-amber-400 transition-all duration-300 mb-10 flex items-center justify-center gap-2 shadow-sm group active:scale-[0.99] cursor-pointer"
             >
               <span className="text-xl group-hover:rotate-90 transition-transform">➕</span>
               <span>新增下一天出差行程</span>

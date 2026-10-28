@@ -16,13 +16,13 @@
       }
     </style>
   </head>
-  <body class="bg-amber-50/40 min-h-screen text-slate-700 antialiased selection:bg-amber-200">
+  <body class="bg-emerald-50/40 min-h-screen text-slate-700 antialiased selection:bg-emerald-200">
     <div id="root"></div>
 
     <script type="text/babel">
       const { useState, useMemo, useEffect } = React;
 
-      // 預設示範資料（欄位完全與 index.html / overseas.html 一致）
+      // 預設示範資料（欄位與 index.html / overseas.html 完全一致）
       const INITIAL_DATA = [
         {
           id: 1,
@@ -61,8 +61,13 @@
 
       function App() {
         const [records, setRecords] = useState(() => {
-          const saved = localStorage.getItem("TKU_CHEM_PAPERS_V2");
-          return saved ? JSON.parse(saved) : INITIAL_DATA;
+          try {
+            const saved = localStorage.getItem("TKU_CHEM_PAPERS_V2");
+            return saved ? JSON.parse(saved) : INITIAL_DATA;
+          } catch (e) {
+            console.error("讀取成果儲存失敗", e);
+            return INITIAL_DATA;
+          }
         });
 
         const [searchTerm, setSearchTerm] = useState("");
@@ -82,10 +87,14 @@
         });
 
         useEffect(() => {
-          localStorage.setItem("TKU_CHEM_PAPERS_V2", JSON.stringify(records));
+          try {
+            localStorage.setItem("TKU_CHEM_PAPERS_V2", JSON.stringify(records));
+          } catch (e) {
+            console.error("寫入成果儲存失敗", e);
+          }
         }, [records]);
 
-        // 統計數字
+        // 統計篇數
         const stats = useMemo(() => {
           const total = records.length;
           const domestic = records.filter(r => r.category === "國內出差").length;
@@ -113,7 +122,7 @@
         const handleAddRecord = (e) => {
           e.preventDefault();
           if (!newRecord.name || !newRecord.paperTitle) {
-            return alert("請填寫發表人姓名與論文題目！");
+            return alert("請填寫發表人姓名與論文題目！🌿");
           }
           setRecords([{ id: Date.now(), ...newRecord }, ...records]);
           setIsModalOpen(false);
@@ -136,7 +145,14 @@
           }
         };
 
-        // 匯出 CSV (Excel 可直接開，含 UTF-8 BOM)
+        // 恢復預設示範資料
+        const handleResetDemo = () => {
+          if (confirm("確定要重設為範例示範資料嗎？現有手動登記內容將被重置。")) {
+            setRecords(INITIAL_DATA);
+          }
+        };
+
+        // 匯出 CSV (Excel 相容，加入 UTF-8 BOM 與學號文字防走鐘)
         const exportCSV = () => {
           if (filteredRecords.length === 0) return alert("目前無資料可供匯出！");
           const headers = ["類別", "姓名", "身分類別", "學號/人員代號", "會議日期", "主辦單位", "研討會/會議名稱", "發表論文題目"];
@@ -144,7 +160,7 @@
             `"${r.category}"`,
             `"${r.name}"`,
             `"${r.type}"`,
-            `"\t${r.idNumber}"`, // 加 \t 防止 Excel 把學號長數字吃掉格式
+            `"\t${r.idNumber}"`,
             `"${r.confDate || ''}"`,
             `"${(r.organizer || '').replace(/"/g, '""')}"`,
             `"${(r.confName || '').replace(/"/g, '""')}"`,
@@ -168,24 +184,35 @@
             <div className="flex justify-center gap-3 mb-6 no-print flex-wrap">
               <a
                 href="index.html"
-                className="bg-white/80 hover:bg-white text-slate-500 font-black px-6 py-2.5 rounded-2xl border border-amber-100 shadow-sm transition flex items-center gap-2 cursor-pointer"
+                className="bg-white/80 hover:bg-white text-slate-500 font-black px-6 py-2.5 rounded-2xl border border-emerald-100 shadow-sm transition flex items-center gap-2 cursor-pointer"
               >
                 <span>🇹🇼</span> 國內出差報帳
               </a>
               <a
                 href="overseas.html"
-                className="bg-white/80 hover:bg-white text-slate-500 font-black px-6 py-2.5 rounded-2xl border border-amber-100 shadow-sm transition flex items-center gap-2 cursor-pointer"
+                className="bg-white/80 hover:bg-white text-slate-500 font-black px-6 py-2.5 rounded-2xl border border-emerald-100 shadow-sm transition flex items-center gap-2 cursor-pointer"
               >
                 <span>✈️</span> 境外出差報帳
               </a>
-              <span className="bg-amber-500 text-white font-black px-6 py-2.5 rounded-2xl shadow-md flex items-center gap-2 ring-2 ring-amber-300">
+              <span className="bg-emerald-600 text-white font-black px-6 py-2.5 rounded-2xl shadow-md flex items-center gap-2 ring-2 ring-emerald-300">
                 <span>📚</span> 會議發表成果彙整
               </span>
             </div>
 
             {/* 標題卡片 */}
-            <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-amber-900/5 border-2 border-amber-200/80 mb-8 relative overflow-hidden text-center print-shadow-none">
-              <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-800 text-xs font-black px-4 py-1.5 rounded-full mb-3 tracking-wider">
+            <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-emerald-900/5 border-2 border-emerald-200/80 mb-8 relative overflow-hidden text-center print-shadow-none">
+              <div className="absolute top-4 right-4 flex items-center gap-2 no-print">
+                <button
+                  type="button"
+                  onClick={handleResetDemo}
+                  className="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-3 py-1 rounded-full transition border border-emerald-200 cursor-pointer"
+                  title="重新載入預設示範資料"
+                >
+                  ↺ 恢復示範
+                </button>
+              </div>
+
+              <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-800 text-xs font-black px-4 py-1.5 rounded-full mb-3 tracking-wider">
                 <span>🌟 淡江大學 化學工程與材料工程學系</span>
               </div>
               <h1 className="text-2xl md:text-4xl font-black text-slate-800 tracking-tight">
@@ -196,45 +223,45 @@
               </p>
             </div>
 
-            {/* 簡潔統計儀表板 */}
+            {/* 統計儀表板 (翡翠綠 / 青綠配色) */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 no-print">
-              <div className="bg-white rounded-2xl p-5 border-2 border-amber-100 shadow-sm flex items-center justify-between">
+              <div className="bg-white rounded-2xl p-5 border-2 border-emerald-100 shadow-sm flex items-center justify-between">
                 <div>
                   <p className="text-xs font-black text-slate-400">總發表篇數</p>
-                  <p className="text-3xl font-black text-slate-800 font-mono mt-1">{stats.total}</p>
+                  <p className="text-3xl font-black text-emerald-700 font-mono mt-1">{stats.total}</p>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-2xl font-black">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl font-black">
                   📝
                 </div>
               </div>
-              <div className="bg-white rounded-2xl p-5 border-2 border-orange-100 shadow-sm flex items-center justify-between">
+              <div className="bg-white rounded-2xl p-5 border-2 border-teal-100 shadow-sm flex items-center justify-between">
                 <div>
                   <p className="text-xs font-black text-slate-400">國內學術年會 / 研討會</p>
-                  <p className="text-3xl font-black text-orange-600 font-mono mt-1">{stats.domestic}</p>
+                  <p className="text-3xl font-black text-teal-600 font-mono mt-1">{stats.domestic}</p>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-700 flex items-center justify-center text-2xl font-black">
+                <div className="w-12 h-12 rounded-2xl bg-teal-100 text-teal-700 flex items-center justify-center text-2xl font-black">
                   🇹🇼
                 </div>
               </div>
-              <div className="bg-white rounded-2xl p-5 border-2 border-sky-100 shadow-sm flex items-center justify-between">
+              <div className="bg-white rounded-2xl p-5 border-2 border-cyan-100 shadow-sm flex items-center justify-between">
                 <div>
                   <p className="text-xs font-black text-slate-400">境外國際學術會議</p>
-                  <p className="text-3xl font-black text-sky-600 font-mono mt-1">{stats.overseas}</p>
+                  <p className="text-3xl font-black text-cyan-700 font-mono mt-1">{stats.overseas}</p>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center text-2xl font-black">
+                <div className="w-12 h-12 rounded-2xl bg-cyan-100 text-cyan-700 flex items-center justify-center text-2xl font-black">
                   ✈️
                 </div>
               </div>
             </div>
 
             {/* 工具列：搜尋、篩選與匯出按鈕 */}
-            <div className="bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-amber-100 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between no-print">
+            <div className="bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-emerald-100 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between no-print">
               <div className="flex flex-wrap gap-2 items-center w-full md:w-auto">
                 <button
                   onClick={() => setFilterCategory("ALL")}
-                  className={`px-4 py-2 rounded-xl text-xs font-black transition ${
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer ${
                     filterCategory === "ALL"
-                      ? "bg-slate-800 text-white shadow"
+                      ? "bg-emerald-800 text-white shadow"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
@@ -242,20 +269,20 @@
                 </button>
                 <button
                   onClick={() => setFilterCategory("國內出差")}
-                  className={`px-4 py-2 rounded-xl text-xs font-black transition ${
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer ${
                     filterCategory === "國內出差"
-                      ? "bg-orange-500 text-white shadow"
-                      : "bg-orange-50 text-orange-700 hover:bg-orange-100"
+                      ? "bg-teal-600 text-white shadow"
+                      : "bg-teal-50 text-teal-700 hover:bg-teal-100"
                   }`}
                 >
                   🇹🇼 國內研討會 ({stats.domestic})
                 </button>
                 <button
                   onClick={() => setFilterCategory("境外出差")}
-                  className={`px-4 py-2 rounded-xl text-xs font-black transition ${
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer ${
                     filterCategory === "境外出差"
-                      ? "bg-sky-600 text-white shadow"
-                      : "bg-sky-50 text-sky-700 hover:bg-sky-100"
+                      ? "bg-cyan-700 text-white shadow"
+                      : "bg-cyan-50 text-cyan-800 hover:bg-cyan-100"
                   }`}
                 >
                   ✈️ 境外國際會議 ({stats.overseas})
@@ -268,17 +295,17 @@
                   placeholder="搜尋發表人、學號、題目、會議..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-sm focus:border-amber-400 outline-none w-full md:w-64"
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-sm focus:border-emerald-400 outline-none w-full md:w-64"
                 />
                 <button
                   onClick={() => setIsModalOpen(true)}
-                  className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-xs font-black shadow transition whitespace-nowrap flex items-center gap-1 cursor-pointer"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-black shadow transition whitespace-nowrap flex items-center gap-1 cursor-pointer"
                 >
                   <span>➕ 手動登記</span>
                 </button>
                 <button
                   onClick={exportCSV}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-black shadow transition whitespace-nowrap flex items-center gap-1 cursor-pointer"
+                  className="bg-teal-700 hover:bg-teal-800 text-white px-4 py-2 rounded-xl text-xs font-black shadow transition whitespace-nowrap flex items-center gap-1 cursor-pointer"
                   title="匯出 Excel 相容 CSV"
                 >
                   <span>📊 匯出 Excel</span>
@@ -293,11 +320,11 @@
             </div>
 
             {/* 資料成果清單表格 */}
-            <div className="bg-white rounded-3xl overflow-hidden shadow-xl shadow-amber-900/5 border-2 border-amber-100 print-shadow-none">
+            <div className="bg-white rounded-3xl overflow-hidden shadow-xl shadow-emerald-900/5 border-2 border-emerald-100 print-shadow-none">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
                   <thead>
-                    <tr className="bg-amber-100/60 text-amber-950 font-black text-xs border-b border-amber-200">
+                    <tr className="bg-emerald-100/60 text-emerald-950 font-black text-xs border-b border-emerald-200">
                       <th className="p-4 w-12 text-center">#</th>
                       <th className="p-4 w-28 text-center">類別</th>
                       <th className="p-4 w-36">發表人資訊</th>
@@ -316,7 +343,7 @@
                       </tr>
                     ) : (
                       filteredRecords.map((r, idx) => (
-                        <tr key={r.id} className="hover:bg-amber-50/40 transition">
+                        <tr key={r.id} className="hover:bg-emerald-50/40 transition">
                           <td className="p-4 text-center font-mono font-bold text-slate-400 text-xs">
                             {idx + 1}
                           </td>
@@ -324,8 +351,8 @@
                             <span
                               className={`text-[11px] font-black px-2.5 py-1 rounded-full ${
                                 r.category === "境外出差"
-                                  ? "bg-sky-100 text-sky-800 border border-sky-200"
-                                  : "bg-orange-100 text-orange-800 border border-orange-200"
+                                  ? "bg-cyan-100 text-cyan-800 border border-cyan-200"
+                                  : "bg-teal-100 text-teal-800 border border-teal-200"
                               }`}
                             >
                               {r.category === "境外出差" ? "✈️ 境外" : "🇹🇼 國內"}
@@ -336,7 +363,7 @@
                             <div className="text-xs text-slate-400 font-mono">
                               {r.idNumber ? r.idNumber : "—"}
                             </div>
-                            <div className="text-[10px] text-amber-700/80 font-medium">{r.type}</div>
+                            <div className="text-[10px] text-emerald-700/80 font-medium">{r.type}</div>
                           </td>
                           <td className="p-4">
                             <div className="font-bold text-slate-800 leading-snug">
@@ -355,7 +382,7 @@
                           <td className="p-4 text-center no-print">
                             <button
                               onClick={() => handleDelete(r.id)}
-                              className="text-slate-300 hover:text-rose-500 transition font-bold text-sm"
+                              className="text-slate-300 hover:text-rose-500 transition font-bold text-sm cursor-pointer"
                               title="刪除"
                             >
                               🗑️
@@ -372,14 +399,14 @@
             {/* 新增紀錄彈窗 (Modal) */}
             {isModalOpen && (
               <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                <div className="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl border border-amber-200">
+                <div className="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl border border-emerald-200">
                   <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
                     <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
                       <span>➕</span> 登記發表成果
                     </h3>
                     <button
                       onClick={() => setIsModalOpen(false)}
-                      className="text-slate-400 hover:text-slate-600 text-xl font-bold"
+                      className="text-slate-400 hover:text-slate-600 text-xl font-bold cursor-pointer"
                     >
                       ✕
                     </button>
@@ -390,7 +417,7 @@
                       <div>
                         <label className="text-xs font-black text-slate-500 mb-1 block">出差類別</label>
                         <select
-                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-amber-400 bg-amber-50/20"
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-emerald-400 bg-emerald-50/20"
                           value={newRecord.category}
                           onChange={(e) => setNewRecord({ ...newRecord, category: e.target.value })}
                         >
@@ -401,7 +428,7 @@
                       <div>
                         <label className="text-xs font-black text-slate-500 mb-1 block">身分類別</label>
                         <select
-                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-amber-400 bg-amber-50/20"
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-emerald-400 bg-emerald-50/20"
                           value={newRecord.type}
                           onChange={(e) => setNewRecord({ ...newRecord, type: e.target.value })}
                         >
@@ -417,7 +444,7 @@
                         <input
                           required
                           placeholder="例如: 王小明"
-                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-amber-400 bg-amber-50/20"
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-emerald-400 bg-emerald-50/20"
                           value={newRecord.name}
                           onChange={(e) => setNewRecord({ ...newRecord, name: e.target.value })}
                         />
@@ -426,7 +453,7 @@
                         <label className="text-xs font-black text-slate-500 mb-1 block">學號 / 人員代號</label>
                         <input
                           placeholder="例如: 410410001"
-                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-amber-400 bg-amber-50/20"
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-emerald-400 bg-emerald-50/20"
                           value={newRecord.idNumber}
                           onChange={(e) => setNewRecord({ ...newRecord, idNumber: e.target.value })}
                         />
@@ -438,7 +465,7 @@
                       <input
                         required
                         placeholder="請輸入完整論文題目"
-                        className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-amber-400 bg-amber-50/20"
+                        className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-emerald-400 bg-emerald-50/20"
                         value={newRecord.paperTitle}
                         onChange={(e) => setNewRecord({ ...newRecord, paperTitle: e.target.value })}
                       />
@@ -448,7 +475,7 @@
                       <label className="text-xs font-black text-slate-500 mb-1 block">研討會 / 會議全名</label>
                       <input
                         placeholder="例如: 2026 化工年會"
-                        className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-amber-400 bg-amber-50/20"
+                        className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-emerald-400 bg-emerald-50/20"
                         value={newRecord.confName}
                         onChange={(e) => setNewRecord({ ...newRecord, confName: e.target.value })}
                       />
@@ -459,7 +486,7 @@
                         <label className="text-xs font-black text-slate-500 mb-1 block">主辦單位</label>
                         <input
                           placeholder="例如: 台灣化學工程學會"
-                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-amber-400 bg-amber-50/20"
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-emerald-400 bg-emerald-50/20"
                           value={newRecord.organizer}
                           onChange={(e) => setNewRecord({ ...newRecord, organizer: e.target.value })}
                         />
@@ -468,7 +495,7 @@
                         <label className="text-xs font-black text-slate-500 mb-1 block">會議日期</label>
                         <input
                           placeholder="例如: 11/20 - 11/22"
-                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-amber-400 bg-amber-50/20"
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-emerald-400 bg-emerald-50/20"
                           value={newRecord.confDate}
                           onChange={(e) => setNewRecord({ ...newRecord, confDate: e.target.value })}
                         />
@@ -485,7 +512,7 @@
                       </button>
                       <button
                         type="submit"
-                        className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2.5 rounded-xl text-xs font-black shadow transition cursor-pointer"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl text-xs font-black shadow transition cursor-pointer"
                       >
                         儲存登記
                       </button>

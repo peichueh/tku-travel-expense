@@ -16,38 +16,67 @@
     <div id="root"></div>
 
     <script type="text/babel">
-      const { useState, useMemo } = React;
+      const { useState, useMemo, useEffect } = React;
+
+      // 預設空白表單狀態
+      const DEFAULT_OVERSEAS_DATA = {
+        unit: "化學工程與材料工程學系",
+        name: "",
+        idNumber: "",      // 學號 / 人員代號
+        type: "教職員工生",
+        reason: "",
+        startYear: "2026",
+        startMonth: "",
+        startDay: "",
+        endYear: "2026",
+        endMonth: "",
+        endDay: "",
+        totalDays: 1,      // 出差總天數
+        receiptCount: 0,
+        dailyPerDiem: 0,   // 每日日支額 (外幣)
+        perDiemRate: 32.5, // 適用匯率
+        trip: {
+          location: "",
+          organizer: "",     // 主辦單位名稱
+          confName: "",      // 會議全名
+          paperTitle: "",    // 發表論文題目
+          confStartM: "",    // 會議開始月
+          confStartD: "",    // 會議開始日
+          confEndM: "",      // 會議結束月
+          confEndD: "",      // 會議結束日
+          workSummary: "",   // 工作記要
+          plane: 0,          // 飛機機票費 (NT$)
+        },
+      };
 
       function App() {
-        const [formData, setFormData] = useState({
-          unit: "化學工程與材料工程學系",
-          name: "",
-          idNumber: "",      // 學號 / 人員代號
-          type: "教職員工生",
-          reason: "",
-          startYear: "2026",
-          startMonth: "",
-          startDay: "",
-          endYear: "2026",
-          endMonth: "",
-          endDay: "",
-          totalDays: 1,      // 出差總天數
-          receiptCount: 0,
-          dailyPerDiem: 0,   // 每日日支額 (外幣)
-          perDiemRate: 32.5, // 適用匯率 (出國前一日台銀現金賣出美元)
-          trip: {
-            location: "",
-            organizer: "",     // 主辦單位名稱
-            confName: "",      // 會議全名
-            paperTitle: "",    // 發表論文題目
-            confStartM: "",    // 會議開始月
-            confStartD: "",    // 會議開始日
-            confEndM: "",      // 會議結束月
-            confEndD: "",      // 會議結束日
-            workSummary: "",   // 工作記要
-            plane: 0,          // 飛機機票費 (NT$)
-          },
+        // 從 localStorage 讀取先前儲存的境外出差資料
+        const [formData, setFormData] = useState(() => {
+          try {
+            const saved = localStorage.getItem("TKU_OVERSEAS_EXPENSE_DATA");
+            return saved ? JSON.parse(saved) : DEFAULT_OVERSEAS_DATA;
+          } catch (e) {
+            console.error("讀取境外本地儲存失敗", e);
+            return DEFAULT_OVERSEAS_DATA;
+          }
         });
+
+        // 當 formData 變動時，即時寫入 localStorage
+        useEffect(() => {
+          try {
+            localStorage.setItem("TKU_OVERSEAS_EXPENSE_DATA", JSON.stringify(formData));
+          } catch (e) {
+            console.error("寫入境外本地儲存失敗", e);
+          }
+        }, [formData]);
+
+        // 清除重填功能
+        const resetForm = () => {
+          if (confirm("確定要清除目前已填寫的所有境外出差資料，重新填寫嗎？")) {
+            localStorage.removeItem("TKU_OVERSEAS_EXPENSE_DATA");
+            setFormData(DEFAULT_OVERSEAS_DATA);
+          }
+        };
 
         // 取得有效出差天數
         const currentTotalDays = parseInt(formData.totalDays) || 1;
@@ -114,7 +143,6 @@
               living_total: livingTotalTWD,
               plane_total: planeTotalTWD,
               grand_total: grandTotal,
-              // 會議與發表成果相關變數
               organizer: formData.trip.organizer || "",
               conf_name: formData.trip.confName || "",
               paper_title: formData.trip.paperTitle || "",
@@ -123,7 +151,6 @@
               conf_end_m: formData.trip.confEndM || "",
               conf_end_d: formData.trip.confEndD || "",
               conf_period: confPeriodStr,
-              // 第一直欄行程資料
               d1_loc: formData.trip.location || "",
               d1_work: formData.trip.workSummary || "",
               d1_plane: planeTotalTWD > 0 ? planeTotalTWD : "",
@@ -166,8 +193,23 @@
               </a>
             </div>
 
-            {/* 標題卡片 */}
+            {/* 標題卡片 (右上角附帶：自動儲存中徽章與清除重填按鈕) */}
             <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-sky-900/5 border-2 border-sky-200/80 mb-8 relative text-center">
+              <div className="absolute top-4 right-4 flex items-center gap-2">
+                <span className="text-[11px] font-bold text-sky-800 bg-sky-100/80 px-2.5 py-1 rounded-full border border-sky-200 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  自動記憶中
+                </span>
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="text-xs bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-500 font-bold px-3 py-1 rounded-full transition border border-slate-200 cursor-pointer"
+                  title="清空表單已填寫內容"
+                >
+                  🧹 清除重填
+                </button>
+              </div>
+
               <div className="inline-flex items-center gap-2 bg-sky-100 text-sky-800 text-xs font-black px-4 py-1.5 rounded-full mb-3 tracking-wider">
                 <span>🌐 淡江大學 化學工程與材料工程學系</span>
               </div>
@@ -178,7 +220,7 @@
                 </span>
               </h1>
               <p className="text-slate-400 text-xs mt-2 font-medium">
-                專為飛機票與生活費日支額設計・外幣標準 × 匯率 × 出差總天數・一鍵套印正式申報單
+                專為飛機票與生活費日支額設計・瀏覽器自動記憶進度・外幣標準 × 匯率 × 出差總天數・一鍵套印正式申報單
               </p>
             </div>
 
@@ -385,7 +427,7 @@
               </div>
             </div>
 
-            {/* 出差行程與學術發表 (新增：主辦單位、論文題目) */}
+            {/* 出差行程與學術發表 (主辦單位、論文題目、會議起訖日期) */}
             <div className="mb-8 bg-white rounded-3xl overflow-hidden shadow-xl shadow-sky-900/5 border-2 border-sky-100">
               <div className="bg-gradient-to-r from-sky-400 to-blue-500 px-6 py-4 flex items-center text-white">
                 <span className="font-black text-base flex items-center gap-2">
@@ -536,7 +578,7 @@
               </button>
             </div>
 
-            {/* 核銷小提醒 (結合學校財務規範) */}
+            {/* 核銷小提醒 */}
             <div className="mt-8 bg-white/70 p-5 rounded-2xl border border-sky-100 text-xs text-slate-500 space-y-1.5 shadow-sm">
               <div className="font-bold text-sky-900 flex items-center gap-1.5 text-sm mb-2">
                 <span>💡</span> 境外核銷憑證貼心備忘
