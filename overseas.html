@@ -19,7 +19,7 @@
       const { useState, useMemo } = React;
 
       function App() {
-        // 境外出差主狀態
+        // 境外出差主狀態 (精簡版)
         const [formData, setFormData] = useState({
           unit: "化學工程與材料工程學系",
           name: "",
@@ -31,8 +31,7 @@
           endYear: "2026",
           endMonth: "",
           endDay: "",
-          receiptCount: 0, // 單據張數
-          // 每日行程清單 (對應 Word 直欄)
+          receiptCount: 0,
           days: [
             {
               id: Date.now(),
@@ -40,46 +39,27 @@
               d: "",
               location: "",
               workSummary: "",
-              plane: 0,
-              ship: 0,
-              landTrans: 0,
-              landRate: 1,
-              dailyPerDiem: 0,
-              perDiemRate: 1,
-              hotel: 0,
-              hotelRate: 1,
-              meals: 0,
-              mealsRate: 1,
-              pocketMoney: 0,
-              pocketRate: 1,
-              feeHandling: 0,
-              insurance: 0,
-              adminFee: 0,
-              miscFee: 0,
+              plane: 0,        // 飛機機票 (NT$)
+              dailyPerDiem: 0, // 日支額 (外幣)
+              perDiemRate: 32.5, // 適用匯率 (預設美元參考值)
+              feeHandling: 0,  // 手續費
+              insurance: 0,    // 保險費
+              adminFee: 0,     // 行政/註冊簽證費
             },
           ],
         });
 
-        // 計算單日折合新台幣總額
+        // 計算單日折合新台幣總額 (機票 + 日支額×匯率 + 辦公費)
         const calculateDayTWD = (day) => {
-          const trans =
-            (parseFloat(day.plane) || 0) +
-            (parseFloat(day.ship) || 0) +
-            (parseFloat(day.landTrans) || 0) * (parseFloat(day.landRate) || 1);
-
+          const plane = parseFloat(day.plane) || 0;
           const living =
-            (parseFloat(day.dailyPerDiem) || 0) * (parseFloat(day.perDiemRate) || 1) +
-            (parseFloat(day.hotel) || 0) * (parseFloat(day.hotelRate) || 1) +
-            (parseFloat(day.meals) || 0) * (parseFloat(day.mealsRate) || 1) +
-            (parseFloat(day.pocketMoney) || 0) * (parseFloat(day.pocketRate) || 1);
-
+            (parseFloat(day.dailyPerDiem) || 0) * (parseFloat(day.perDiemRate) || 1);
           const office =
             (parseFloat(day.feeHandling) || 0) +
             (parseFloat(day.insurance) || 0) +
-            (parseFloat(day.adminFee) || 0) +
-            (parseFloat(day.miscFee) || 0);
+            (parseFloat(day.adminFee) || 0);
 
-          return Math.round(trans + living + office);
+          return Math.round(plane + living + office);
         };
 
         // 總計計算
@@ -114,21 +94,11 @@
                 location: "",
                 workSummary: "",
                 plane: 0,
-                ship: 0,
-                landTrans: 0,
-                landRate: 1,
                 dailyPerDiem: 0,
-                perDiemRate: 1,
-                hotel: 0,
-                hotelRate: 1,
-                meals: 0,
-                mealsRate: 1,
-                pocketMoney: 0,
-                pocketRate: 1,
+                perDiemRate: formData.days[formData.days.length - 1]?.perDiemRate || 32.5,
                 feeHandling: 0,
                 insurance: 0,
                 adminFee: 0,
-                miscFee: 0,
               },
             ],
           });
@@ -158,7 +128,23 @@
               linebreaks: true,
             });
 
-            // 準備填入 Word 的資料結構
+            // 整理每一天的欄位資料 (d1_*, d2_*, ...)
+            const dayFields = {};
+            formData.days.forEach((d, i) => {
+              const p = `d${i + 1}_`;
+              dayFields[`${p}m`] = d.m || "";
+              dayFields[`${p}d`] = d.d || "";
+              dayFields[`${p}loc`] = d.location || "";
+              dayFields[`${p}work`] = d.workSummary || "";
+              dayFields[`${p}plane`] = d.plane > 0 ? d.plane : "";
+              dayFields[`${p}per_diem`] = d.dailyPerDiem > 0 ? d.dailyPerDiem : "";
+              dayFields[`${p}rate`] = d.perDiemRate || "";
+              dayFields[`${p}fee`] = d.feeHandling > 0 ? d.feeHandling : "";
+              dayFields[`${p}ins`] = d.insurance > 0 ? d.insurance : "";
+              dayFields[`${p}admin`] = d.adminFee > 0 ? d.adminFee : "";
+              dayFields[`${p}total`] = calculateDayTWD(d);
+            });
+
             const overseasData = {
               name: formData.name,
               type: formData.type,
@@ -172,30 +158,7 @@
               total_days: totals.totalDays,
               receipt_count: formData.receiptCount || 0,
               grand_total: totals.grandTotal,
-              days: formData.days.map((d, index) => ({
-                day_no: index + 1,
-                m: d.m,
-                d: d.d,
-                location: d.location,
-                work: d.workSummary,
-                plane: d.plane || "",
-                ship: d.ship || "",
-                land: d.landTrans || "",
-                land_rate: d.landRate,
-                per_diem: d.dailyPerDiem || "",
-                per_diem_rate: d.perDiemRate,
-                hotel: d.hotel || "",
-                hotel_rate: d.hotelRate,
-                meals: d.meals || "",
-                meals_rate: d.mealsRate,
-                pocket: d.pocketMoney || "",
-                pocket_rate: d.pocketRate,
-                fee: d.feeHandling || "",
-                ins: d.insurance || "",
-                admin: d.adminFee || "",
-                misc: d.miscFee || "",
-                day_twd: calculateDayTWD(d),
-              })),
+              ...dayFields,
             };
 
             doc.render(overseasData);
@@ -209,7 +172,7 @@
             saveAs(out, `淡江化材_國外出差申報單_${formData.name || "未命名"}.docx`);
           } catch (e) {
             console.error(e);
-            alert(`[產檔錯誤]: ${e.message}\n請確認 public 資料夾是否有 overseas_travel_template.docx 範本。`);
+            alert(`[產檔錯誤]: ${e.message}\n請確認 public 資料夾是否存在 overseas_travel_template.docx。`);
           }
         };
 
@@ -236,18 +199,18 @@
               <h1 className="text-2xl md:text-4xl font-black text-slate-800 tracking-tight flex items-center justify-center gap-3">
                 <span>國外出差旅費申報小幫手</span>
                 <span className="text-sm bg-sky-600 text-white font-bold px-3 py-1 rounded-2xl shadow-sm rotate-2">
-                  115新制適用
+                  115新制
                 </span>
               </h1>
               <p className="text-slate-400 text-xs mt-2 font-medium">
-                支援外幣匯率換算・生活費（日支額/非日支額）試算・交通與辦公費精準核銷
+                專為飛機票與日支生活費設計・自動折合新台幣・一鍵套印正式申報單
               </p>
             </div>
 
-            {/* 基本資料與出差區間卡片 */}
+            {/* 基本資料卡片 */}
             <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-sky-900/5 border-2 border-sky-100 mb-8">
               <div className="flex items-center gap-2 font-black text-sky-700 text-base mb-5 pb-3 border-b border-sky-100">
-                <span className="text-xl">📋</span> 基本資料與出國期間
+                <span className="text-xl">📋</span> 基本資料與出差期間
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
                 <div className="flex flex-col">
@@ -276,7 +239,7 @@
                   <label className="text-xs font-black text-slate-500 mb-2 ml-1">出差事由</label>
                   <input
                     className="border-2 border-slate-100 bg-sky-50/20 p-3 rounded-2xl focus:border-sky-400 focus:bg-white outline-none transition font-medium"
-                    placeholder="例如: 赴美參加國際材料年會"
+                    placeholder="例如: 赴美參加國際材料年會發表"
                     value={formData.reason}
                     onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                   />
@@ -289,21 +252,21 @@
                   <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">出差啟程日期 (西元)</label>
                   <div className="flex gap-1 items-center">
                     <input
-                      className="w-16 p-2 rounded-xl border border-slate-200 text-center font-mono text-sm"
+                      className="w-16 p-2 rounded-xl border border-slate-200 text-center font-mono text-sm bg-white"
                       placeholder="YYYY"
                       value={formData.startYear}
                       onChange={(e) => setFormData({ ...formData, startYear: e.target.value })}
                     />
                     <span>/</span>
                     <input
-                      className="w-12 p-2 rounded-xl border border-slate-200 text-center font-mono text-sm"
+                      className="w-12 p-2 rounded-xl border border-slate-200 text-center font-mono text-sm bg-white"
                       placeholder="M"
                       value={formData.startMonth}
                       onChange={(e) => setFormData({ ...formData, startMonth: e.target.value })}
                     />
                     <span>/</span>
                     <input
-                      className="w-12 p-2 rounded-xl border border-slate-200 text-center font-mono text-sm"
+                      className="w-12 p-2 rounded-xl border border-slate-200 text-center font-mono text-sm bg-white"
                       placeholder="D"
                       value={formData.startDay}
                       onChange={(e) => setFormData({ ...formData, startDay: e.target.value })}
@@ -315,21 +278,21 @@
                   <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">出差結束日期 (西元)</label>
                   <div className="flex gap-1 items-center">
                     <input
-                      className="w-16 p-2 rounded-xl border border-slate-200 text-center font-mono text-sm"
+                      className="w-16 p-2 rounded-xl border border-slate-200 text-center font-mono text-sm bg-white"
                       placeholder="YYYY"
                       value={formData.endYear}
                       onChange={(e) => setFormData({ ...formData, endYear: e.target.value })}
                     />
                     <span>/</span>
                     <input
-                      className="w-12 p-2 rounded-xl border border-slate-200 text-center font-mono text-sm"
+                      className="w-12 p-2 rounded-xl border border-slate-200 text-center font-mono text-sm bg-white"
                       placeholder="M"
                       value={formData.endMonth}
                       onChange={(e) => setFormData({ ...formData, endMonth: e.target.value })}
                     />
                     <span>/</span>
                     <input
-                      className="w-12 p-2 rounded-xl border border-slate-200 text-center font-mono text-sm"
+                      className="w-12 p-2 rounded-xl border border-slate-200 text-center font-mono text-sm bg-white"
                       placeholder="D"
                       value={formData.endDay}
                       onChange={(e) => setFormData({ ...formData, endDay: e.target.value })}
@@ -338,7 +301,7 @@
                 </div>
 
                 <div className="flex flex-col">
-                  <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">檢附費用單據張數</label>
+                  <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">檢附單據張數</label>
                   <div className="flex items-center gap-2">
                     <input
                       type="number"
@@ -377,19 +340,19 @@
                 </div>
 
                 <div className="p-6 space-y-6">
-                  {/* 當地時間與工作摘要 */}
+                  {/* 當地時間與地點事由 */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-5 border-b border-slate-100">
                     <div className="flex items-center gap-2">
                       <label className="text-xs font-black text-slate-400">月/日：</label>
                       <input
-                        className="w-12 p-2 border rounded-xl text-center font-mono text-sm"
+                        className="w-12 p-2 border rounded-xl text-center font-mono text-sm bg-slate-50"
                         placeholder="M"
                         value={day.m}
                         onChange={(e) => updateDayField(idx, "m", e.target.value)}
                       />
                       <span>/</span>
                       <input
-                        className="w-12 p-2 border rounded-xl text-center font-mono text-sm"
+                        className="w-12 p-2 border rounded-xl text-center font-mono text-sm bg-slate-50"
                         placeholder="D"
                         value={day.d}
                         onChange={(e) => updateDayField(idx, "d", e.target.value)}
@@ -406,121 +369,93 @@
                     <div>
                       <input
                         className="w-full p-2 border rounded-xl text-sm"
-                        placeholder="工作記要 (如: 會議報到/口頭報告)"
+                        placeholder="工作記要 (如: 研討會報到/發表)"
                         value={day.workSummary}
                         onChange={(e) => updateDayField(idx, "workSummary", e.target.value)}
                       />
                     </div>
                   </div>
 
-                  {/* 費用三層結構 */}
+                  {/* 核心費用欄位：飛機費 + 日支生活費 + 辦公費 */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* 1. 交通費 */}
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+                    {/* 1. 交通費 (僅飛機) */}
+                    <div className="bg-sky-50/40 p-4 rounded-2xl border border-sky-100 space-y-2">
                       <div className="text-xs font-black text-sky-800 flex items-center gap-1">
-                        <span>✈️</span> 交通費 (新台幣/外幣折算)
+                        <span>✈️</span> 交通費：飛機 (機票)
                       </div>
-                      <div>
-                        <label className="text-[11px] text-slate-400 block mb-1">機票費 (NT$)</label>
+                      <label className="text-[11px] text-slate-400 block">機票新台幣實付金額</label>
+                      <div className="flex items-center bg-white px-3 py-1.5 rounded-xl border border-sky-200">
+                        <span className="text-xs text-slate-400 mr-1 font-bold">NT$</span>
                         <input
                           type="number"
-                          className="w-full p-2 rounded-xl border text-right font-mono text-sm bg-white"
+                          className="w-full outline-none text-right font-mono font-bold text-sky-900"
                           value={day.plane}
                           onChange={(e) => updateDayField(idx, "plane", e.target.value)}
                         />
                       </div>
-                      <div>
-                        <label className="text-[11px] text-slate-400 block mb-1">大眾陸運工具 (外幣 × 匯率)</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="number"
-                            className="w-1/2 p-2 rounded-xl border text-right font-mono text-sm bg-white"
-                            placeholder="外幣金額"
-                            value={day.landTrans}
-                            onChange={(e) => updateDayField(idx, "landTrans", e.target.value)}
-                          />
-                          <input
-                            type="number"
-                            step="0.01"
-                            className="w-1/2 p-2 rounded-xl border text-right font-mono text-sm bg-white"
-                            placeholder="適用匯率"
-                            value={day.landRate}
-                            onChange={(e) => updateDayField(idx, "landRate", e.target.value)}
-                          />
-                        </div>
-                      </div>
                     </div>
 
-                    {/* 2. 生活費 */}
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+                    {/* 2. 生活費 (僅日支額) */}
+                    <div className="bg-sky-50/40 p-4 rounded-2xl border border-sky-100 space-y-2">
                       <div className="text-xs font-black text-sky-800 flex items-center gap-1">
-                        <span>🏨</span> 生活費 (依日支額或檢據)
+                        <span>🏨</span> 生活費：日支額折合
                       </div>
-                      <div>
-                        <label className="text-[11px] text-slate-400 block mb-1">日支額 (見表規定外幣 × 匯率)</label>
-                        <div className="flex gap-2">
+                      <label className="text-[11px] text-slate-400 block">外幣標準 × 折算匯率</label>
+                      <div className="flex gap-2">
+                        <div className="w-1/2 flex items-center bg-white px-2.5 py-1.5 rounded-xl border border-sky-200">
                           <input
                             type="number"
-                            className="w-1/2 p-2 rounded-xl border text-right font-mono text-sm bg-white"
-                            placeholder="日支外幣"
+                            className="w-full outline-none text-right font-mono font-bold text-sky-900"
+                            placeholder="外幣"
                             value={day.dailyPerDiem}
                             onChange={(e) => updateDayField(idx, "dailyPerDiem", e.target.value)}
                           />
+                        </div>
+                        <div className="w-1/2 flex items-center bg-white px-2.5 py-1.5 rounded-xl border border-sky-200">
+                          <span className="text-[10px] text-slate-400 mr-1">匯率</span>
                           <input
                             type="number"
                             step="0.01"
-                            className="w-1/2 p-2 rounded-xl border text-right font-mono text-sm bg-white"
-                            placeholder="匯率"
+                            className="w-full outline-none text-right font-mono font-bold text-sky-900"
+                            placeholder="32.5"
                             value={day.perDiemRate}
                             onChange={(e) => updateDayField(idx, "perDiemRate", e.target.value)}
                           />
                         </div>
                       </div>
-                      <p className="text-[10px] text-slate-400 italic">
-                        ※ 若按非日支額申報，可於 Word 中進一步填載檢據之住宿與膳雜費。
-                      </p>
                     </div>
 
-                    {/* 3. 辦公費 */}
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+                    {/* 3. 辦公規費 */}
+                    <div className="bg-sky-50/40 p-4 rounded-2xl border border-sky-100 space-y-2">
                       <div className="text-xs font-black text-sky-800 flex items-center gap-1">
-                        <span>📂</span> 辦公與行政費 (NT$)
+                        <span>📂</span> 辦公費 (NT$)
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
                         <div>
-                          <label className="text-[11px] text-slate-400 block mb-1">手續費</label>
+                          <label className="text-[10px] text-slate-400 block mb-0.5">手續費</label>
                           <input
                             type="number"
-                            className="w-full p-2 rounded-xl border text-right font-mono text-sm bg-white"
+                            className="w-full p-1.5 rounded-xl border text-right font-mono text-xs bg-white"
                             value={day.feeHandling}
                             onChange={(e) => updateDayField(idx, "feeHandling", e.target.value)}
                           />
                         </div>
                         <div>
-                          <label className="text-[11px] text-slate-400 block mb-1">保險費</label>
+                          <label className="text-[10px] text-slate-400 block mb-0.5">保險費</label>
                           <input
                             type="number"
-                            className="w-full p-2 rounded-xl border text-right font-mono text-sm bg-white"
+                            className="w-full p-1.5 rounded-xl border text-right font-mono text-xs bg-white"
                             value={day.insurance}
                             onChange={(e) => updateDayField(idx, "insurance", e.target.value)}
                           />
                         </div>
                         <div>
-                          <label className="text-[11px] text-slate-400 block mb-1">行政費</label>
+                          <label className="text-[10px] text-slate-400 block mb-0.5">行政費</label>
                           <input
                             type="number"
-                            className="w-full p-2 rounded-xl border text-right font-mono text-sm bg-white"
+                            className="w-full p-1.5 rounded-xl border text-right font-mono text-xs bg-white"
                             value={day.adminFee}
                             onChange={(e) => updateDayField(idx, "adminFee", e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[11px] text-slate-400 block mb-1">雜費/交際</label>
-                          <input
-                            type="number"
-                            className="w-full p-2 rounded-xl border text-right font-mono text-sm bg-white"
-                            value={day.miscFee}
-                            onChange={(e) => updateDayField(idx, "miscFee", e.target.value)}
                           />
                         </div>
                       </div>
@@ -528,7 +463,7 @@
                   </div>
 
                   {/* 當日小計 */}
-                  <div className="flex justify-end items-center gap-2 pt-2 text-right">
+                  <div className="flex justify-end items-center gap-2 pt-1 text-right">
                     <span className="text-xs font-black text-slate-400">當日折合新台幣小計：</span>
                     <span className="text-xl font-black text-sky-600 font-mono">
                       NT$ {calculateDayTWD(day).toLocaleString()}
@@ -559,7 +494,7 @@
                   </span>
                 </div>
                 <p className="text-white/80 text-xs mt-2 font-medium">
-                  共計 {totals.totalDays} 日境外行程・已折合匯率計算
+                  共計 {totals.totalDays} 日境外行程・機票與日支額已折合計算
                 </p>
               </div>
 
