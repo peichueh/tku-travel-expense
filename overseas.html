@@ -37,6 +37,8 @@
           trip: {
             location: "",
             confName: "",      // 會議名稱
+            organizer: "",     // 主辦單位
+            paperTitle: "",    // 發表論文題目
             confStartM: "",    // 會議開始月
             confStartD: "",    // 會議開始日
             confEndM: "",      // 會議結束月
@@ -110,14 +112,16 @@
               living_total: livingTotalTWD,
               plane_total: planeTotalTWD,
               grand_total: grandTotal,
-              // 會議日期變數
+              // 會議與論文變數
               conf_name: formData.trip.confName || "",
+              organizer: formData.trip.organizer || "",
+              paper_title: formData.trip.paperTitle || "",
               conf_start_m: formData.trip.confStartM || "",
               conf_start_d: formData.trip.confStartD || "",
               conf_end_m: formData.trip.confEndM || "",
               conf_end_d: formData.trip.confEndD || "",
               conf_period: confPeriodStr,
-              // 第一直欄行程資料
+              // 行程明細欄位
               d1_loc: formData.trip.location || "",
               d1_work: formData.trip.workSummary || "",
               d1_plane: planeTotalTWD > 0 ? planeTotalTWD : "",
@@ -364,7 +368,7 @@
               </div>
             </div>
 
-            {/* 出差行程與交通 (新增：會議日期 月/日 - 月/日) */}
+            {/* 出差行程與交通 (新增：主辦單位、發表論文題目) */}
             <div className="mb-8 bg-white rounded-3xl overflow-hidden shadow-xl shadow-sky-900/5 border-2 border-sky-100">
               <div className="bg-gradient-to-r from-sky-400 to-blue-500 px-6 py-4 flex items-center text-white">
                 <span className="font-black text-base flex items-center gap-2">
@@ -376,9 +380,8 @@
               </div>
 
               <div className="p-6 space-y-5">
-                {/* 第一列：起訖地點、會議名稱、會議日期 */}
+                {/* 第一列：起訖地點、會議名稱、主辦單位 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  {/* 起訖地點 */}
                   <div className="flex flex-col">
                     <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">起訖地點</label>
                     <input
@@ -389,7 +392,6 @@
                     />
                   </div>
 
-                  {/* 會議名稱 */}
                   <div className="flex flex-col">
                     <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">會議 / 研討會名稱</label>
                     <input
@@ -400,7 +402,21 @@
                     />
                   </div>
 
-                  {/* 新增：會議日期 月/日 - 月/日 */}
+                  {/* 新增欄位 1：主辦單位 */}
+                  <div className="flex flex-col">
+                    <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">主辦單位</label>
+                    <input
+                      className="w-full p-2.5 border-2 border-slate-100 rounded-2xl text-sm focus:border-sky-400 outline-none bg-sky-50/20 font-medium"
+                      placeholder="例如: Materials Research Society"
+                      value={formData.trip.organizer}
+                      onChange={(e) => updateTripField("organizer", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* 第二列：會議日期、發表論文題目 */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  {/* 會議日期 */}
                   <div className="flex flex-col">
                     <label className="text-xs font-black text-sky-800 mb-1.5 ml-1 flex items-center gap-1">
                       <span>📅 會議日期 (月 / 日 - 月 / 日)</span>
@@ -439,11 +455,21 @@
                       </div>
                     </div>
                   </div>
+
+                  {/* 新增欄位 2：發表論文題目 (跨兩欄寬度) */}
+                  <div className="flex flex-col md:col-span-2">
+                    <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">發表論文題目</label>
+                    <input
+                      className="w-full p-2.5 border-2 border-slate-100 rounded-2xl text-sm focus:border-sky-400 outline-none bg-sky-50/20 font-medium"
+                      placeholder="例如: Synthesis and Characterization of Novel Nanomaterials"
+                      value={formData.trip.paperTitle}
+                      onChange={(e) => updateTripField("paperTitle", e.target.value)}
+                    />
+                  </div>
                 </div>
 
-                {/* 第二列：工作記要、飛機機票 */}
+                {/* 第三列：工作記要、飛機機票 */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2 border-t border-slate-100">
-                  {/* 工作記要 */}
                   <div className="flex flex-col">
                     <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">工作記要</label>
                     <input
@@ -454,7 +480,6 @@
                     />
                   </div>
 
-                  {/* 飛機機票 (NT$) */}
                   <div className="flex flex-col">
                     <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">飛機機票費 (實付新台幣金額)</label>
                     <div className="flex items-center bg-sky-50/40 px-3 py-2 rounded-2xl border-2 border-sky-200">
