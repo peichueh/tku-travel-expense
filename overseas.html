@@ -22,8 +22,8 @@
         const [formData, setFormData] = useState({
           unit: "化學工程與材料工程學系",
           name: "",
+          idNumber: "",      // 學號 / 人員代號
           type: "教職員工生",
-          idNumber: "", // 學號 / 人員代號
           reason: "",
           startYear: "2026",
           startMonth: "",
@@ -31,14 +31,14 @@
           endYear: "2026",
           endMonth: "",
           endDay: "",
-          totalDays: 1, // 出差總天數
+          totalDays: 1,      // 出差總天數
           receiptCount: 0,
           dailyPerDiem: 0,   // 每日日支額 (外幣)
           perDiemRate: 32.5, // 適用匯率 (出國前一日台銀現金賣出美元)
           trip: {
             location: "",
-            confName: "",      // 會議名稱
-            organizer: "",     // 主辦單位
+            organizer: "",     // 主辦單位名稱
+            confName: "",      // 會議全名
             paperTitle: "",    // 發表論文題目
             confStartM: "",    // 會議開始月
             confStartD: "",    // 會議開始日
@@ -67,7 +67,7 @@
           return livingTotalTWD + planeTotalTWD;
         }, [livingTotalTWD, planeTotalTWD]);
 
-        // 更新行程欄位
+        // 更新行程與會議欄位
         const updateTripField = (field, value) => {
           setFormData({
             ...formData,
@@ -98,9 +98,8 @@
             // 準備填入 Word 的資料物件
             const overseasData = {
               name: formData.name,
-              type: formData.type,
               id_number: formData.idNumber || "",
-              idNumber: formData.idNumber || "",
+              type: formData.type,
               reason: formData.reason,
               start_year: formData.startYear,
               start_m: formData.startMonth,
@@ -110,21 +109,21 @@
               end_d: formData.endDay,
               total_days: currentTotalDays,
               receipt_count: formData.receiptCount || 0,
-              rate: formData.perDiemRate || "", // 填入 Word 左側「（匯率 : {rate}）」
+              rate: formData.perDiemRate || "",
               daily_per_diem: formData.dailyPerDiem || "",
               living_total: livingTotalTWD,
               plane_total: planeTotalTWD,
               grand_total: grandTotal,
-              // 會議與論文變數
-              conf_name: formData.trip.confName || "",
+              // 會議與發表成果相關變數
               organizer: formData.trip.organizer || "",
+              conf_name: formData.trip.confName || "",
               paper_title: formData.trip.paperTitle || "",
               conf_start_m: formData.trip.confStartM || "",
               conf_start_d: formData.trip.confStartD || "",
               conf_end_m: formData.trip.confEndM || "",
               conf_end_d: formData.trip.confEndD || "",
               conf_period: confPeriodStr,
-              // 行程明細欄位
+              // 第一直欄行程資料
               d1_loc: formData.trip.location || "",
               d1_work: formData.trip.workSummary || "",
               d1_plane: planeTotalTWD > 0 ? planeTotalTWD : "",
@@ -148,22 +147,24 @@
 
         return (
           <div className="max-w-6xl mx-auto p-4 md:p-8 my-6 md:my-10">
-            <!-- 頂部切換分頁標籤 (Tab) 三方串連 -->
-	<div className="flex justify-center gap-3 mb-6 flex-wrap">
-  	<a
-   	 href="index.html"
-   	 className="bg-white/80 hover:bg-white text-slate-500 font-black px-6 py-2.5 rounded-2xl border border-amber-100 shadow-sm transition flex items-center gap-2 cursor-pointer">
-  	  <span>🇹🇼</span> 國內出差報帳
-  	</a>
- 	 <span className="bg-amber-500 text-white font-black px-6 py-2.5 rounded-2xl shadow-md flex items-center gap-2 ring-2 ring-amber-300">
- 	   <span>✈️</span> 境外出差報帳
- 	 </span>
- 	 <a
- 	   href="summary.html"
-  	  className="bg-white/80 hover:bg-white text-slate-500 font-black px-6 py-2.5 rounded-2xl border border-amber-100 shadow-sm transition flex items-center gap-2 cursor-pointer">
- 	   <span>📚</span> 會議發表成果彙整
- 	 </a>
-	</div>
+            {/* 頂部切換分頁標籤 (Tab) - 三方串連 */}
+            <div className="flex justify-center gap-3 mb-6 flex-wrap">
+              <a
+                href="index.html"
+                className="bg-white/80 hover:bg-white text-slate-500 font-black px-6 py-2.5 rounded-2xl border border-sky-100 shadow-sm transition flex items-center gap-2 cursor-pointer"
+              >
+                <span>🇹🇼</span> 國內出差報帳
+              </a>
+              <span className="bg-sky-500 text-white font-black px-6 py-2.5 rounded-2xl shadow-md flex items-center gap-2 ring-2 ring-sky-300">
+                <span>✈️</span> 境外出差報帳 (新制)
+              </span>
+              <a
+                href="summary.html"
+                className="bg-white/80 hover:bg-white text-slate-500 font-black px-6 py-2.5 rounded-2xl border border-sky-100 shadow-sm transition flex items-center gap-2 cursor-pointer"
+              >
+                <span>📚</span> 會議發表成果彙整
+              </a>
+            </div>
 
             {/* 標題卡片 */}
             <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-sky-900/5 border-2 border-sky-200/80 mb-8 relative text-center">
@@ -181,12 +182,12 @@
               </p>
             </div>
 
-            {/* 基本資料卡片 (調整為 4 欄並排) */}
+            {/* 基本資料卡片 (包含 學號/人員代號) */}
             <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-sky-900/5 border-2 border-sky-100 mb-8">
               <div className="flex items-center gap-2 font-black text-sky-700 text-base mb-5 pb-3 border-b border-sky-100">
                 <span className="text-xl">📋</span> 基本資料與出差期間
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 mb-5">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
                 <div className="flex flex-col">
                   <label className="text-xs font-black text-slate-500 mb-2 ml-1">
                     姓名 <span className="text-rose-500">*</span>
@@ -199,6 +200,15 @@
                   />
                 </div>
                 <div className="flex flex-col">
+                  <label className="text-xs font-black text-slate-500 mb-2 ml-1">學號 / 人員代號</label>
+                  <input
+                    className="border-2 border-slate-100 bg-sky-50/20 p-3 rounded-2xl focus:border-sky-400 focus:bg-white outline-none transition font-medium font-mono"
+                    placeholder="例如: 410410001"
+                    value={formData.idNumber}
+                    onChange={(e) => setFormData({ ...formData, idNumber: e.target.value })}
+                  />
+                </div>
+                <div className="flex flex-col">
                   <label className="text-xs font-black text-slate-500 mb-2 ml-1">身分類別</label>
                   <select
                     className="w-full border-2 border-slate-100 bg-sky-50/20 p-3 rounded-2xl focus:border-sky-400 outline-none transition font-medium"
@@ -208,16 +218,6 @@
                     <option>教職員工生</option>
                     <option>校外專家</option>
                   </select>
-                </div>
-                {/* 新增欄位：學號 / 人員代號 */}
-                <div className="flex flex-col">
-                  <label className="text-xs font-black text-slate-500 mb-2 ml-1">學號 / 人員代號</label>
-                  <input
-                    className="border-2 border-slate-100 bg-sky-50/20 p-3 rounded-2xl focus:border-sky-400 focus:bg-white outline-none transition font-medium"
-                    placeholder="輸入學號或職號"
-                    value={formData.idNumber}
-                    onChange={(e) => setFormData({ ...formData, idNumber: e.target.value })}
-                  />
                 </div>
                 <div className="flex flex-col">
                   <label className="text-xs font-black text-slate-500 mb-2 ml-1">出差事由</label>
@@ -385,19 +385,19 @@
               </div>
             </div>
 
-            {/* 出差行程與交通 (含主辦單位、發表論文題目、會議日期) */}
+            {/* 出差行程與學術發表 (新增：主辦單位、論文題目) */}
             <div className="mb-8 bg-white rounded-3xl overflow-hidden shadow-xl shadow-sky-900/5 border-2 border-sky-100">
               <div className="bg-gradient-to-r from-sky-400 to-blue-500 px-6 py-4 flex items-center text-white">
                 <span className="font-black text-base flex items-center gap-2">
                   <span className="bg-white/20 w-8 h-8 rounded-xl flex items-center justify-center text-sm font-mono">
                     ✈️
                   </span>
-                  出差行程與交通
+                  出差行程與發表成果資訊
                 </span>
               </div>
 
               <div className="p-6 space-y-5">
-                {/* 第一列：起訖地點、會議名稱、主辦單位 */}
+                {/* 第一列：起訖地點、主辦單位、會議名稱 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   <div className="flex flex-col">
                     <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">起訖地點</label>
@@ -410,17 +410,7 @@
                   </div>
 
                   <div className="flex flex-col">
-                    <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">會議 / 研討會名稱</label>
-                    <input
-                      className="w-full p-2.5 border-2 border-slate-100 rounded-2xl text-sm focus:border-sky-400 outline-none bg-sky-50/20 font-medium"
-                      placeholder="例如: 2026 MRS Fall Meeting"
-                      value={formData.trip.confName}
-                      onChange={(e) => updateTripField("confName", e.target.value)}
-                    />
-                  </div>
-
-                  <div className="flex flex-col">
-                    <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">主辦單位</label>
+                    <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">主辦單位名稱</label>
                     <input
                       className="w-full p-2.5 border-2 border-slate-100 rounded-2xl text-sm focus:border-sky-400 outline-none bg-sky-50/20 font-medium"
                       placeholder="例如: Materials Research Society"
@@ -428,16 +418,35 @@
                       onChange={(e) => updateTripField("organizer", e.target.value)}
                     />
                   </div>
+
+                  <div className="flex flex-col">
+                    <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">研討會 / 會議全名</label>
+                    <input
+                      className="w-full p-2.5 border-2 border-slate-100 rounded-2xl text-sm focus:border-sky-400 outline-none bg-sky-50/20 font-medium"
+                      placeholder="例如: 2026 MRS Fall Meeting & Exhibit"
+                      value={formData.trip.confName}
+                      onChange={(e) => updateTripField("confName", e.target.value)}
+                    />
+                  </div>
                 </div>
 
-                {/* 第二列：會議日期、發表論文題目 */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  {/* 會議日期 */}
+                {/* 第二列：論文題目、會議起訖日期 */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2 border-t border-slate-100">
+                  <div className="flex flex-col md:col-span-2">
+                    <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">發表論文題目</label>
+                    <input
+                      className="w-full p-2.5 border-2 border-slate-100 rounded-2xl text-sm focus:border-sky-400 outline-none bg-sky-50/20 font-medium"
+                      placeholder="例如: Advanced Nanostructured Materials for Green Energy Storage"
+                      value={formData.trip.paperTitle}
+                      onChange={(e) => updateTripField("paperTitle", e.target.value)}
+                    />
+                  </div>
+
                   <div className="flex flex-col">
                     <label className="text-xs font-black text-sky-800 mb-1.5 ml-1 flex items-center gap-1">
                       <span>📅 會議日期 (月 / 日 - 月 / 日)</span>
                     </label>
-                    <div className="flex items-center gap-1.5 bg-sky-50/30 p-2 rounded-2xl border-2 border-sky-100">
+                    <div className="flex items-center gap-1.5 bg-sky-50/30 p-1.5 rounded-2xl border-2 border-sky-100">
                       <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-xl border border-slate-200">
                         <input
                           className="w-8 text-center text-sm font-mono outline-none"
@@ -471,17 +480,6 @@
                       </div>
                     </div>
                   </div>
-
-                  {/* 發表論文題目 */}
-                  <div className="flex flex-col md:col-span-2">
-                    <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">發表論文題目</label>
-                    <input
-                      className="w-full p-2.5 border-2 border-slate-100 rounded-2xl text-sm focus:border-sky-400 outline-none bg-sky-50/20 font-medium"
-                      placeholder="例如: Synthesis and Characterization of Novel Nanomaterials"
-                      value={formData.trip.paperTitle}
-                      onChange={(e) => updateTripField("paperTitle", e.target.value)}
-                    />
-                  </div>
                 </div>
 
                 {/* 第三列：工作記要、飛機機票 */}
@@ -490,7 +488,7 @@
                     <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">工作記要</label>
                     <input
                       className="w-full p-2.5 border-2 border-slate-100 rounded-2xl text-sm focus:border-sky-400 outline-none bg-sky-50/20 font-medium"
-                      placeholder="例如: 大會口頭論文發表與學術座談交流"
+                      placeholder="例如: 口頭論文發表與學術座談交流"
                       value={formData.trip.workSummary}
                       onChange={(e) => updateTripField("workSummary", e.target.value)}
                     />
@@ -543,8 +541,8 @@
               <div className="font-bold text-sky-900 flex items-center gap-1.5 text-sm mb-2">
                 <span>💡</span> 境外核銷憑證貼心備忘
               </div>
-              <p>• <b>機票核銷</b>：請檢附旅行業代收轉付收據、電子機票購票證明或登機證存根[cite: 6]。</p>
-              <p>• <b>生活費匯率</b>：原則依出國前一天臺灣銀行現金賣出美元匯率為準，若以信用卡支付亦可檢附水單或帳單明細[cite: 6]。</p>
+              <p>• <b>機票核銷</b>：請檢附旅行業代收轉付收據、電子機票購票證明或登機證存根。</p>
+              <p>• <b>生活費匯率</b>：原則依出國前一天臺灣銀行現金賣出美元匯率為準，若以信用卡支付亦可檢附水單或帳單明細。</p>
             </div>
           </div>
         );

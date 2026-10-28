@@ -22,8 +22,8 @@
         const [formData, setFormData] = useState({
           unit: "化學工程與材料工程學系",
           name: "",
+          idNumber: "",      // 學號 / 人員代號
           type: "教職員工生",
-          idNumber: "",     // 學號 / 人員代號
           reason: "",
           regFee: 0,
           regOrganizer: "",  // 主辦單位
@@ -198,9 +198,8 @@
           // 1. 產生主表資料 (國內出差旅費申報單: travel_template.docx)
           const mainData = {
             name: formData.name,
+            id_number: formData.idNumber || "",
             type: formData.type,
-            id_number: formData.idNumber || "", // 對應範本 {id_number}
-            idNumber: formData.idNumber || "",  // 對應範本 {idNumber}
             reason: formData.reason,
             total_amt: totals.grandTotal,
             total_days: totals.totalDays,
@@ -258,22 +257,24 @@
 
         return (
           <div className="max-w-6xl mx-auto p-4 md:p-8 my-6 md:my-10">
-	<!-- 頂部切換分頁標籤 (Tab) 三方串連 -->
-	<div className="flex justify-center gap-3 mb-6 flex-wrap">
-	  <span className="bg-amber-500 text-white font-black px-6 py-2.5 rounded-2xl shadow-md flex items-center gap-2 ring-2 ring-amber-300">
-	    <span>🇹🇼</span> 國內出差報帳
-	  </span>
-	  <a
-	    href="overseas.html"
-	    className="bg-white/80 hover:bg-white text-slate-500 font-black px-6 py-2.5 rounded-2xl border border-amber-100 shadow-sm transition flex items-center gap-2 cursor-pointer"  >
-	    <span>✈️</span> 境外出差報帳
-	  </a>
-	  <a
-	    href="summary.html"
-    	className="bg-white/80 hover:bg-white text-slate-500 font-black px-6 py-2.5 rounded-2xl border border-amber-100 shadow-sm transition flex items-center gap-2 cursor-pointer"  >
-	    <span>📚</span> 會議發表成果彙整
-	  </a>
-	</div>
+            {/* 頂部切換分頁標籤 (Tab) - 三方串連 */}
+            <div className="flex justify-center gap-3 mb-6 flex-wrap">
+              <span className="bg-amber-500 text-white font-black px-6 py-2.5 rounded-2xl shadow-md flex items-center gap-2 ring-2 ring-amber-300">
+                <span>🇹🇼</span> 國內出差報帳
+              </span>
+              <a
+                href="overseas.html"
+                className="bg-white/80 hover:bg-white text-slate-500 font-black px-6 py-2.5 rounded-2xl border border-amber-100 shadow-sm transition flex items-center gap-2 cursor-pointer"
+              >
+                <span>✈️</span> 境外出差報帳 (新制)
+              </a>
+              <a
+                href="summary.html"
+                className="bg-white/80 hover:bg-white text-slate-500 font-black px-6 py-2.5 rounded-2xl border border-amber-100 shadow-sm transition flex items-center gap-2 cursor-pointer"
+              >
+                <span>📚</span> 會議發表成果彙整
+              </a>
+            </div>
 
             {/* 頂部俏皮標題卡片 */}
             <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-amber-900/5 border-2 border-amber-200/80 mb-8 relative overflow-hidden text-center">
@@ -293,12 +294,12 @@
               </p>
             </div>
 
-            {/* 基本資料卡片 (新增：學號/人員代號) */}
+            {/* 基本資料卡片 (包含 學號/人員代號) */}
             <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-amber-900/5 border-2 border-amber-100 mb-8">
               <div className="flex items-center gap-2 font-black text-amber-700 text-base mb-5 pb-3 border-b border-amber-100">
                 <span className="text-xl">👤</span> 出差基本資料
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="flex flex-col">
                   <label className="text-xs font-black text-slate-500 mb-2 ml-1 flex items-center gap-1">
                     <span>姓名</span>
@@ -310,6 +311,19 @@
                     value={formData.name}
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-xs font-black text-slate-500 mb-2 ml-1">
+                    學號 / 人員代號
+                  </label>
+                  <input
+                    className="border-2 border-slate-100 bg-amber-50/20 p-3 rounded-2xl focus:border-amber-400 focus:bg-white outline-none transition font-medium font-mono"
+                    placeholder="例如: 410410001"
+                    value={formData.idNumber}
+                    onChange={(e) =>
+                      setFormData({ ...formData, idNumber: e.target.value })
                     }
                   />
                 </div>
@@ -330,19 +344,6 @@
                     </select>
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-xs">▼</span>
                   </div>
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-xs font-black text-slate-500 mb-2 ml-1">
-                    學號 / 人員代號
-                  </label>
-                  <input
-                    className="border-2 border-slate-100 bg-amber-50/20 p-3 rounded-2xl focus:border-amber-400 focus:bg-white outline-none transition font-medium"
-                    placeholder="例如: 412410000"
-                    value={formData.idNumber}
-                    onChange={(e) =>
-                      setFormData({ ...formData, idNumber: e.target.value })
-                    }
-                  />
                 </div>
                 <div className="flex flex-col">
                   <label className="text-xs font-black text-slate-500 mb-2 ml-1">
