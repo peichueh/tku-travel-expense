@@ -30,80 +30,45 @@
           endYear: "2026",
           endMonth: "",
           endDay: "",
+          totalDays: 1, // 出差總天數
           receiptCount: 0,
-          days: [
-            {
-              id: Date.now(),
-              m: "",
-              d: "",
-              location: "",
-              workSummary: "",
-              plane: 0,          // 飛機機票 (NT$)
-              dailyPerDiem: 0,   // 日支額 (外幣)
-              perDiemRate: 32.5, // 適用匯率
-            },
-          ],
+          dailyPerDiem: 0,   // 每日日支額 (外幣)
+          perDiemRate: 32.5, // 適用匯率 (出國前一日台銀現金賣出美元)
+          trip: {
+            location: "",
+            confName: "",      // 會議名稱
+            confStartM: "",    // 會議開始月
+            confStartD: "",    // 會議開始日
+            confEndM: "",      // 會議結束月
+            confEndD: "",      // 會議結束日
+            workSummary: "",   // 工作記要
+            plane: 0,          // 飛機機票費 (NT$)
+          },
         });
 
-        // 計算單日生活費折合新台幣 (外幣標準 × 折算匯率)
-        const calculatePerDiemTWD = (day) => {
-          const perDiem = parseFloat(day.dailyPerDiem) || 0;
-          const rate = parseFloat(day.perDiemRate) || 0;
-          return Math.round(perDiem * rate);
-        };
+        // 取得有效出差天數
+        const currentTotalDays = parseInt(formData.totalDays) || 1;
 
-        // 計算單日折合新台幣總額 (機票 + 日支額生活費)
-        const calculateDayTWD = (day) => {
-          const plane = parseFloat(day.plane) || 0;
-          const living = calculatePerDiemTWD(day);
-          return Math.round(plane + living);
-        };
+        // 計算生活費總計 (外幣標準 × 匯率 × 出差總天數)
+        const livingTotalTWD = useMemo(() => {
+          const perDiem = parseFloat(formData.dailyPerDiem) || 0;
+          const rate = parseFloat(formData.perDiemRate) || 0;
+          return Math.round(perDiem * rate * currentTotalDays);
+        }, [formData.dailyPerDiem, formData.perDiemRate, currentTotalDays]);
 
-        // 總計計算
-        const totals = useMemo(() => {
-          const grandTotal = formData.days.reduce(
-            (sum, day) => sum + calculateDayTWD(day),
-            0
-          );
-          return {
-            grandTotal,
-            totalDays: formData.days.length,
-          };
-        }, [formData.days]);
+        // 機票金額 (NT$)
+        const planeTotalTWD = parseFloat(formData.trip.plane) || 0;
 
-        // 更新特定日期的數值
-        const updateDayField = (idx, field, value) => {
-          const newDays = [...formData.days];
-          newDays[idx][field] = value;
-          setFormData({ ...formData, days: newDays });
-        };
+        // 整份報告總計 (生活費總計 + 機票)
+        const grandTotal = useMemo(() => {
+          return livingTotalTWD + planeTotalTWD;
+        }, [livingTotalTWD, planeTotalTWD]);
 
-        // 新增一天行程
-        const addDay = () => {
+        // 更新行程欄位
+        const updateTripField = (field, value) => {
           setFormData({
             ...formData,
-            days: [
-              ...formData.days,
-              {
-                id: Date.now(),
-                m: "",
-                d: "",
-                location: "",
-                workSummary: "",
-                plane: 0,
-                dailyPerDiem: 0,
-                perDiemRate: formData.days[formData.days.length - 1]?.perDiemRate || 32.5,
-              },
-            ],
-          });
-        };
-
-        // 刪除一天行程
-        const removeDay = (idx) => {
-          if (formData.days.length <= 1) return;
-          setFormData({
-            ...formData,
-            days: formData.days.filter((_, i) => i !== idx),
+            trip: { ...formData.trip, [field]: value },
           });
         };
 
@@ -122,24 +87,12 @@
               linebreaks: true,
             });
 
-            // 基準匯率：預設取用第 1 天設定的匯率代入全域 {rate}
-            const baseRate = formData.days[0]?.perDiemRate || "";
+            // 會議起訖字串整理
+            const confPeriodStr = (formData.trip.confStartM && formData.trip.confStartD)
+              ? `${formData.trip.confStartM}/${formData.trip.confStartD} - ${formData.trip.confEndM}/${formData.trip.confEndD}`
+              : "";
 
-            // 整理每一天的欄位資料 (d1_*, d2_*, ...)
-            const dayFields = {};
-            formData.days.forEach((d, i) => {
-              const p = `d${i + 1}_`;
-              dayFields[`${p}m`] = d.m || "";
-              dayFields[`${p}d`] = d.d || "";
-              dayFields[`${p}loc`] = d.location || "";
-              dayFields[`${p}work`] = d.workSummary || "";
-              dayFields[`${p}plane`] = d.plane > 0 ? d.plane : "";
-              dayFields[`${p}per_diem`] = d.dailyPerDiem > 0 ? d.dailyPerDiem : "";
-              dayFields[`${p}rate`] = d.perDiemRate || "";
-              dayFields[`${p}living_twd`] = calculatePerDiemTWD(d) > 0 ? calculatePerDiemTWD(d) : "";
-              dayFields[`${p}total`] = calculateDayTWD(d);
-            });
-
+            // 準備填入 Word 的資料物件
             const overseasData = {
               name: formData.name,
               type: formData.type,
@@ -150,11 +103,25 @@
               end_year: formData.endYear,
               end_m: formData.endMonth,
               end_d: formData.endDay,
-              total_days: totals.totalDays,
+              total_days: currentTotalDays,
               receipt_count: formData.receiptCount || 0,
-              rate: baseRate, // 填入 Word 範本左側「（匯率 : {rate}）」
-              grand_total: totals.grandTotal,
-              ...dayFields,
+              rate: formData.perDiemRate || "", // 填入 Word 左側「（匯率 : {rate}）」
+              daily_per_diem: formData.dailyPerDiem || "",
+              living_total: livingTotalTWD,
+              plane_total: planeTotalTWD,
+              grand_total: grandTotal,
+              // 會議日期變數
+              conf_name: formData.trip.confName || "",
+              conf_start_m: formData.trip.confStartM || "",
+              conf_start_d: formData.trip.confStartD || "",
+              conf_end_m: formData.trip.confEndM || "",
+              conf_end_d: formData.trip.confEndD || "",
+              conf_period: confPeriodStr,
+              // 第一直欄行程資料
+              d1_loc: formData.trip.location || "",
+              d1_work: formData.trip.workSummary || "",
+              d1_plane: planeTotalTWD > 0 ? planeTotalTWD : "",
+              d1_per_diem: formData.dailyPerDiem > 0 ? formData.dailyPerDiem : "",
             };
 
             doc.render(overseasData);
@@ -199,7 +166,7 @@
                 </span>
               </h1>
               <p className="text-slate-400 text-xs mt-2 font-medium">
-                專為飛機票與日支生活費設計・即時計算外幣折合新台幣・一鍵套印正式申報單
+                專為飛機票與生活費日支額設計・外幣標準 × 匯率 × 出差總天數・一鍵套印正式申報單
               </p>
             </div>
 
@@ -242,8 +209,8 @@
                 </div>
               </div>
 
-              {/* 出差起訖日期與單據張數 */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 bg-sky-50/40 p-5 rounded-2xl border border-sky-100">
+              {/* 出差起訖日期、出差總天數與單據張數 */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-sky-50/40 p-5 rounded-2xl border border-sky-100 items-end">
                 <div className="flex flex-col">
                   <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">出差啟程日期 (西元)</label>
                   <div className="flex gap-1 items-center">
@@ -296,6 +263,25 @@
                   </div>
                 </div>
 
+                {/* 出差總天數 */}
+                <div className="flex flex-col">
+                  <label className="text-xs font-black text-sky-800 mb-1.5 ml-1 flex items-center gap-1">
+                    <span>🗓️ 出差總天數</span>
+                    <span className="text-[10px] bg-sky-200 text-sky-900 px-1.5 py-0.5 rounded font-bold">乘算依據</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      className="w-24 p-2 rounded-xl border-2 border-sky-300 text-center font-mono text-sm font-black text-sky-900 bg-white shadow-inner"
+                      value={formData.totalDays}
+                      onChange={(e) => setFormData({ ...formData, totalDays: e.target.value })}
+                    />
+                    <span className="text-xs font-bold text-slate-500">天</span>
+                  </div>
+                </div>
+
+                {/* 單據張數 */}
                 <div className="flex flex-col">
                   <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">檢附單據張數</label>
                   <div className="flex items-center gap-2">
@@ -312,159 +298,194 @@
               </div>
             </div>
 
-            {/* 每日費用明細列表 */}
-            {formData.days.map((day, idx) => (
-              <div
-                key={day.id}
-                className="mb-8 bg-white rounded-3xl overflow-hidden shadow-xl shadow-sky-900/5 border-2 border-sky-100"
-              >
-                <div className="bg-gradient-to-r from-sky-400 to-blue-500 px-6 py-4 flex justify-between items-center text-white">
-                  <span className="font-black text-base flex items-center gap-2">
-                    <span className="bg-white/20 w-8 h-8 rounded-xl flex items-center justify-center text-sm font-mono">
-                      D{idx + 1}
-                    </span>
-                    第 {idx + 1} 天出差明細 (當地時間)
+            {/* 國外生活費設定卡片 (日支額 × 匯率 × 總天數) */}
+            <div className="bg-gradient-to-r from-sky-50 to-blue-50 rounded-3xl p-6 md:p-7 shadow-lg shadow-sky-900/5 border-2 border-sky-200 mb-8">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-sky-200/70">
+                <div>
+                  <h3 className="text-base font-black text-sky-950 flex items-center gap-2">
+                    <span className="text-xl">🏨</span>
+                    <span>國外生活費：日支額折合計算</span>
+                  </h3>
+                  <p className="text-xs text-sky-700/80 mt-1">
+                    計算方式：每日日支額 (外幣) × 折算匯率 × 出差總天數 ({currentTotalDays} 天)
+                  </p>
+                </div>
+                <div className="flex items-center bg-white px-5 py-2.5 rounded-2xl border-2 border-sky-300 shadow-sm">
+                  <span className="text-xs font-black text-sky-900 mr-2">生活費折合新台幣合計：</span>
+                  <span className="text-xl font-black text-sky-600 font-mono">
+                    NT$ {livingTotalTWD.toLocaleString()}
                   </span>
-                  {formData.days.length > 1 && (
-                    <button
-                      onClick={() => removeDay(idx)}
-                      className="bg-white/20 hover:bg-rose-500 text-white px-3 py-1.5 rounded-xl text-xs font-black transition"
-                    >
-                      ✕ 刪除當日
-                    </button>
-                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-4">
+                <div className="flex flex-col">
+                  <label className="text-xs font-black text-sky-900/70 mb-1.5 ml-1">
+                    每日日支額標準 (外幣)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="border-2 border-sky-100 p-2.5 rounded-2xl bg-white focus:border-sky-400 outline-none text-sm font-mono font-bold text-sky-900"
+                    placeholder="例如: 215"
+                    value={formData.dailyPerDiem}
+                    onChange={(e) => setFormData({ ...formData, dailyPerDiem: e.target.value })}
+                  />
                 </div>
 
-                <div className="p-6 space-y-6">
-                  {/* 當地時間與地點事由 */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-5 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs font-black text-slate-400">月/日：</label>
-                      <input
-                        className="w-12 p-2 border rounded-xl text-center font-mono text-sm bg-slate-50"
-                        placeholder="M"
-                        value={day.m}
-                        onChange={(e) => updateDayField(idx, "m", e.target.value)}
-                      />
-                      <span>/</span>
-                      <input
-                        className="w-12 p-2 border rounded-xl text-center font-mono text-sm bg-slate-50"
-                        placeholder="D"
-                        value={day.d}
-                        onChange={(e) => updateDayField(idx, "d", e.target.value)}
-                      />
-                    </div>
+                <div className="flex flex-col">
+                  <label className="text-xs font-black text-sky-900/70 mb-1.5 ml-1">
+                    適用匯率 (出國前一日台銀現金賣出美元)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="border-2 border-sky-100 p-2.5 rounded-2xl bg-white focus:border-sky-400 outline-none text-sm font-mono font-bold text-sky-900"
+                    placeholder="32.5"
+                    value={formData.perDiemRate}
+                    onChange={(e) => setFormData({ ...formData, perDiemRate: e.target.value })}
+                  />
+                </div>
+
+                <div className="flex flex-col justify-end">
+                  <div className="bg-sky-100/60 p-2.5 rounded-2xl border border-sky-200 text-xs text-sky-800 flex items-center justify-between">
                     <div>
-                      <input
-                        className="w-full p-2 border rounded-xl text-sm"
-                        placeholder="起訖地點 (如: 台北-舊金山)"
-                        value={day.location}
-                        onChange={(e) => updateDayField(idx, "location", e.target.value)}
-                      />
+                      <span>單日折合：</span>
+                      <span className="font-mono font-bold">
+                        NT$ {Math.round((parseFloat(formData.dailyPerDiem) || 0) * (parseFloat(formData.perDiemRate) || 0)).toLocaleString()}
+                      </span>
                     </div>
-                    <div>
-                      <input
-                        className="w-full p-2 border rounded-xl text-sm"
-                        placeholder="工作記要 (如: 研討會報到/發表)"
-                        value={day.workSummary}
-                        onChange={(e) => updateDayField(idx, "workSummary", e.target.value)}
-                      />
+                    <div className="font-bold text-sky-950">
+                      × {currentTotalDays} 天
                     </div>
-                  </div>
-
-                  {/* 核心費用欄位：僅保留 飛機費 + 日支生活費 (含合計新台幣) */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* 1. 交通費 (僅飛機) */}
-                    <div className="bg-sky-50/40 p-5 rounded-2xl border border-sky-100 space-y-2">
-                      <div className="text-xs font-black text-sky-800 flex items-center gap-1">
-                        <span>✈️</span> 交通費：飛機 (機票)
-                      </div>
-                      <label className="text-[11px] text-slate-400 block">機票新台幣實付金額</label>
-                      <div className="flex items-center bg-white px-3 py-2 rounded-xl border border-sky-200">
-                        <span className="text-xs text-slate-400 mr-1 font-bold">NT$</span>
-                        <input
-                          type="number"
-                          className="w-full outline-none text-right font-mono font-bold text-sky-900"
-                          value={day.plane}
-                          onChange={(e) => updateDayField(idx, "plane", e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    {/* 2. 生活費 (日支額折合 + 新台幣合計) */}
-                    <div className="bg-sky-50/40 p-5 rounded-2xl border border-sky-100 space-y-2">
-                      <div className="text-xs font-black text-sky-800 flex items-center justify-between">
-                        <span className="flex items-center gap-1">
-                          <span>🏨</span> 生活費：日支額折合
-                        </span>
-                      </div>
-                      <label className="text-[11px] text-slate-400 block">外幣標準 × 折算匯率</label>
-                      <div className="flex gap-2">
-                        <div className="w-1/2 flex items-center bg-white px-3 py-2 rounded-xl border border-sky-200">
-                          <input
-                            type="number"
-                            className="w-full outline-none text-right font-mono font-bold text-sky-900"
-                            placeholder="外幣"
-                            value={day.dailyPerDiem}
-                            onChange={(e) => updateDayField(idx, "dailyPerDiem", e.target.value)}
-                          />
-                        </div>
-                        <div className="w-1/2 flex items-center bg-white px-3 py-2 rounded-xl border border-sky-200">
-                          <span className="text-[10px] text-slate-400 mr-1">匯率</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            className="w-full outline-none text-right font-mono font-bold text-sky-900"
-                            placeholder="32.5"
-                            value={day.perDiemRate}
-                            onChange={(e) => updateDayField(idx, "perDiemRate", e.target.value)}
-                          />
-                        </div>
-                      </div>
-
-                      {/* 生活費折合新台幣合計 */}
-                      <div className="flex items-center justify-between bg-sky-100/70 px-3 py-2 rounded-xl border border-sky-200 mt-2">
-                        <span className="text-[11px] font-black text-sky-900">生活費折合新台幣合計</span>
-                        <span className="font-mono font-black text-sky-700 text-sm">
-                          NT$ {calculatePerDiemTWD(day).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 當日小計 */}
-                  <div className="flex justify-end items-center gap-2 pt-1 text-right">
-                    <span className="text-xs font-black text-slate-400">當日折合新台幣小計：</span>
-                    <span className="text-xl font-black text-sky-600 font-mono">
-                      NT$ {calculateDayTWD(day).toLocaleString()}
-                    </span>
                   </div>
                 </div>
               </div>
-            ))}
+            </div>
 
-            {/* 新增一日行程 */}
-            <button
-              onClick={addDay}
-              className="w-full py-4 border-2 border-dashed border-sky-300 rounded-3xl text-sky-700 font-black hover:bg-sky-100/50 transition-all duration-300 mb-10 flex items-center justify-center gap-2 shadow-sm active:scale-[0.99]"
-            >
-              <span>➕ 新增下一日國外出差明細</span>
-            </button>
+            {/* 出差行程與交通 (新增：會議日期 月/日 - 月/日) */}
+            <div className="mb-8 bg-white rounded-3xl overflow-hidden shadow-xl shadow-sky-900/5 border-2 border-sky-100">
+              <div className="bg-gradient-to-r from-sky-400 to-blue-500 px-6 py-4 flex items-center text-white">
+                <span className="font-black text-base flex items-center gap-2">
+                  <span className="bg-white/20 w-8 h-8 rounded-xl flex items-center justify-center text-sm font-mono">
+                    ✈️
+                  </span>
+                  出差行程與交通
+                </span>
+              </div>
+
+              <div className="p-6 space-y-5">
+                {/* 第一列：起訖地點、會議名稱、會議日期 */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  {/* 起訖地點 */}
+                  <div className="flex flex-col">
+                    <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">起訖地點</label>
+                    <input
+                      className="w-full p-2.5 border-2 border-slate-100 rounded-2xl text-sm focus:border-sky-400 outline-none bg-sky-50/20 font-medium"
+                      placeholder="例如: 台北-舊金山往返"
+                      value={formData.trip.location}
+                      onChange={(e) => updateTripField("location", e.target.value)}
+                    />
+                  </div>
+
+                  {/* 會議名稱 */}
+                  <div className="flex flex-col">
+                    <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">會議 / 研討會名稱</label>
+                    <input
+                      className="w-full p-2.5 border-2 border-slate-100 rounded-2xl text-sm focus:border-sky-400 outline-none bg-sky-50/20 font-medium"
+                      placeholder="例如: 2026 MRS Fall Meeting"
+                      value={formData.trip.confName}
+                      onChange={(e) => updateTripField("confName", e.target.value)}
+                    />
+                  </div>
+
+                  {/* 新增：會議日期 月/日 - 月/日 */}
+                  <div className="flex flex-col">
+                    <label className="text-xs font-black text-sky-800 mb-1.5 ml-1 flex items-center gap-1">
+                      <span>📅 會議日期 (月 / 日 - 月 / 日)</span>
+                    </label>
+                    <div className="flex items-center gap-1.5 bg-sky-50/30 p-2 rounded-2xl border-2 border-sky-100">
+                      <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-xl border border-slate-200">
+                        <input
+                          className="w-8 text-center text-sm font-mono outline-none"
+                          placeholder="M"
+                          value={formData.trip.confStartM}
+                          onChange={(e) => updateTripField("confStartM", e.target.value)}
+                        />
+                        <span className="text-slate-300">/</span>
+                        <input
+                          className="w-8 text-center text-sm font-mono outline-none"
+                          placeholder="D"
+                          value={formData.trip.confStartD}
+                          onChange={(e) => updateTripField("confStartD", e.target.value)}
+                        />
+                      </div>
+                      <span className="text-slate-400 font-bold px-1">-</span>
+                      <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-xl border border-slate-200">
+                        <input
+                          className="w-8 text-center text-sm font-mono outline-none"
+                          placeholder="M"
+                          value={formData.trip.confEndM}
+                          onChange={(e) => updateTripField("confEndM", e.target.value)}
+                        />
+                        <span className="text-slate-300">/</span>
+                        <input
+                          className="w-8 text-center text-sm font-mono outline-none"
+                          placeholder="D"
+                          value={formData.trip.confEndD}
+                          onChange={(e) => updateTripField("confEndD", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 第二列：工作記要、飛機機票 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2 border-t border-slate-100">
+                  {/* 工作記要 */}
+                  <div className="flex flex-col">
+                    <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">工作記要</label>
+                    <input
+                      className="w-full p-2.5 border-2 border-slate-100 rounded-2xl text-sm focus:border-sky-400 outline-none bg-sky-50/20 font-medium"
+                      placeholder="例如: 大會口頭論文發表與學術座談交流"
+                      value={formData.trip.workSummary}
+                      onChange={(e) => updateTripField("workSummary", e.target.value)}
+                    />
+                  </div>
+
+                  {/* 飛機機票 (NT$) */}
+                  <div className="flex flex-col">
+                    <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">飛機機票費 (實付新台幣金額)</label>
+                    <div className="flex items-center bg-sky-50/40 px-3 py-2 rounded-2xl border-2 border-sky-200">
+                      <span className="text-xs text-sky-800 font-black mr-2 whitespace-nowrap">✈️ NT$</span>
+                      <input
+                        type="number"
+                        className="w-full bg-transparent outline-none text-right font-mono font-bold text-sky-900"
+                        placeholder="0"
+                        value={formData.trip.plane}
+                        onChange={(e) => updateTripField("plane", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* 底部總覽卡片 */}
             <div className="bg-gradient-to-br from-sky-500 via-blue-600 to-indigo-600 p-8 rounded-3xl flex flex-col md:flex-row justify-between items-center shadow-xl shadow-sky-900/10 text-white">
               <div className="text-center md:text-left mb-6 md:mb-0">
                 <span className="text-xs font-bold bg-white/20 px-3 py-1 rounded-full">
-                  ✈️ 國外出差總支出 (折合新台幣)
+                  ✈️ 國外出差總支出 (機票 + 生活費)
                 </span>
                 <div className="flex items-baseline justify-center md:justify-start gap-1 mt-2">
                   <span className="text-2xl font-black text-sky-200">NT$</span>
                   <span className="text-5xl font-black tracking-tight font-mono">
-                    {totals.grandTotal.toLocaleString()}
+                    {grandTotal.toLocaleString()}
                   </span>
                 </div>
                 <p className="text-white/80 text-xs mt-2 font-medium">
-                  共計 {totals.totalDays} 日境外行程・機票與日支額已折合計算
+                  共計 {currentTotalDays} 日境外行程・生活費已按 {currentTotalDays} 天乘算
                 </p>
               </div>
 
