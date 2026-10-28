@@ -18,11 +18,13 @@
     <script type="text/babel">
       const { useState, useMemo, useEffect } = React;
 
-      // 預設空白表單狀態
+      // ⚠️ 請填入您的 Google Apps Script Web App 網址
+      const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbx7e8CwJg48lkZBIFjEUA3rxuNXwr9Ujfj8daNOrZFBuQO_PMKY9knokvgUoPdaEh7SrA/exec";
+
       const DEFAULT_OVERSEAS_DATA = {
         unit: "化學工程與材料工程學系",
         name: "",
-        idNumber: "",      // 學號 / 人員代號
+        idNumber: "",
         type: "教職員工生",
         reason: "",
         startYear: "2026",
@@ -31,46 +33,40 @@
         endYear: "2026",
         endMonth: "",
         endDay: "",
-        totalDays: 1,      // 出差總天數
+        totalDays: 1,
         receiptCount: 0,
-        dailyPerDiem: 0,   // 每日日支額 (外幣)
-        perDiemRate: 32.5, // 適用匯率
+        dailyPerDiem: 0,
+        perDiemRate: 32.5,
         trip: {
           location: "",
-          organizer: "",     // 主辦單位名稱
-          confName: "",      // 會議全名
-          paperTitle: "",    // 發表論文題目
-          confStartM: "",    // 會議開始月
-          confStartD: "",    // 會議開始日
-          confEndM: "",      // 會議結束月
-          confEndD: "",      // 會議結束日
-          workSummary: "",   // 工作記要
-          plane: 0,          // 飛機機票費 (NT$)
+          organizer: "",
+          confName: "",
+          paperTitle: "",
+          confStartM: "",
+          confStartD: "",
+          confEndM: "",
+          confEndD: "",
+          workSummary: "",
+          plane: 0,
         },
       };
 
       function App() {
-        // 從 localStorage 讀取先前儲存的境外出差資料
         const [formData, setFormData] = useState(() => {
           try {
             const saved = localStorage.getItem("TKU_OVERSEAS_EXPENSE_DATA");
             return saved ? JSON.parse(saved) : DEFAULT_OVERSEAS_DATA;
           } catch (e) {
-            console.error("讀取境外本地儲存失敗", e);
             return DEFAULT_OVERSEAS_DATA;
           }
         });
 
-        // 當 formData 變動時，即時寫入 localStorage
         useEffect(() => {
           try {
             localStorage.setItem("TKU_OVERSEAS_EXPENSE_DATA", JSON.stringify(formData));
-          } catch (e) {
-            console.error("寫入境外本地儲存失敗", e);
-          }
+          } catch (e) {}
         }, [formData]);
 
-        // 清除重填功能
         const resetForm = () => {
           if (confirm("確定要清除目前已填寫的所有境外出差資料，重新填寫嗎？")) {
             localStorage.removeItem("TKU_OVERSEAS_EXPENSE_DATA");
@@ -78,25 +74,20 @@
           }
         };
 
-        // 取得有效出差天數
         const currentTotalDays = parseInt(formData.totalDays) || 1;
 
-        // 計算生活費總計 (外幣標準 × 匯率 × 出差總天數)
         const livingTotalTWD = useMemo(() => {
           const perDiem = parseFloat(formData.dailyPerDiem) || 0;
           const rate = parseFloat(formData.perDiemRate) || 0;
           return Math.round(perDiem * rate * currentTotalDays);
         }, [formData.dailyPerDiem, formData.perDiemRate, currentTotalDays]);
 
-        // 機票金額 (NT$)
         const planeTotalTWD = parseFloat(formData.trip.plane) || 0;
 
-        // 整份報告總計 (生活費總計 + 機票)
         const grandTotal = useMemo(() => {
           return livingTotalTWD + planeTotalTWD;
         }, [livingTotalTWD, planeTotalTWD]);
 
-        // 更新行程與會議欄位
         const updateTripField = (field, value) => {
           setFormData({
             ...formData,
@@ -104,9 +95,42 @@
           });
         };
 
-        // 產出 Word 檔
+        // 自動背景同步到 Google 試算表
+        const syncToGoogleSheet = async () => {
+          if (!formData.trip.paperTitle && !formData.trip.confName) return;
+          if (GOOGLE_SHEET_API_URL.includes("YOUR_SCRIPT_ID_HERE")) return;
+
+          const confPeriodStr = (formData.trip.confStartM && formData.trip.confStartD)
+            ? `${formData.trip.confStartM}/${formData.trip.confStartD} - ${formData.trip.confEndM}/${formData.trip.confEndD}`
+            : "";
+
+          try {
+            await fetch(GOOGLE_SHEET_API_URL, {
+              method: "POST",
+              mode: "no-cors",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                category: "境外出差",
+                name: formData.name,
+                type: formData.type,
+                idNumber: formData.idNumber,
+                confDate: confPeriodStr,
+                organizer: formData.trip.organizer,
+                confName: formData.trip.confName,
+                paperTitle: formData.trip.paperTitle
+              })
+            });
+            console.log("已自動同步境外發表成果至 Google 試算表");
+          } catch (err) {
+            console.error("同步至 Google 試算表失敗", err);
+          }
+        };
+
         const generateOverseasDoc = async () => {
           if (!formData.name) return alert("請輸入姓名後再產生文件！🌸");
+
+          // 觸發背景同步至雲端試算表
+          syncToGoogleSheet();
 
           try {
             const response = await fetch("./public/overseas_travel_template.docx");
@@ -119,12 +143,10 @@
               linebreaks: true,
             });
 
-            // 會議起訖字串整理
             const confPeriodStr = (formData.trip.confStartM && formData.trip.confStartD)
               ? `${formData.trip.confStartM}/${formData.trip.confStartD} - ${formData.trip.confEndM}/${formData.trip.confEndD}`
               : "";
 
-            // 準備填入 Word 的資料物件
             const overseasData = {
               name: formData.name,
               id_number: formData.idNumber || "",
@@ -168,13 +190,13 @@
             saveAs(out, `淡江化材_國外出差申報單_${formData.name || "未命名"}.docx`);
           } catch (e) {
             console.error(e);
-            alert(`[產檔錯誤]: ${e.message}\n請確認 public 資料夾是否存在 overseas_travel_template.docx。`);
+            alert(`[產檔錯誤]: ${e.message}`);
           }
         };
 
         return (
           <div className="max-w-6xl mx-auto p-4 md:p-8 my-6 md:my-10">
-            {/* 頂部切換分頁標籤 (Tab) - 三方串連 */}
+            {/* 頂部切換三頁籤 */}
             <div className="flex justify-center gap-3 mb-6 flex-wrap">
               <a
                 href="index.html"
@@ -193,7 +215,7 @@
               </a>
             </div>
 
-            {/* 標題卡片 (右上角附帶：自動儲存中徽章與清除重填按鈕) */}
+            {/* 標題卡片 */}
             <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-sky-900/5 border-2 border-sky-200/80 mb-8 relative text-center">
               <div className="absolute top-4 right-4 flex items-center gap-2">
                 <span className="text-[11px] font-bold text-sky-800 bg-sky-100/80 px-2.5 py-1 rounded-full border border-sky-200 flex items-center gap-1">
@@ -220,11 +242,11 @@
                 </span>
               </h1>
               <p className="text-slate-400 text-xs mt-2 font-medium">
-                專為飛機票與生活費日支額設計・瀏覽器自動記憶進度・外幣標準 × 匯率 × 出差總天數・一鍵套印正式申報單
+                專為飛機票與生活費日支額設計・產檔時自動彙整發表成果至雲端・一鍵套印正式申報單
               </p>
             </div>
 
-            {/* 基本資料卡片 (包含 學號/人員代號) */}
+            {/* 基本資料卡片 */}
             <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-sky-900/5 border-2 border-sky-100 mb-8">
               <div className="flex items-center gap-2 font-black text-sky-700 text-base mb-5 pb-3 border-b border-sky-100">
                 <span className="text-xl">📋</span> 基本資料與出差期間
@@ -326,7 +348,6 @@
                   </div>
                 </div>
 
-                {/* 出差總天數 */}
                 <div className="flex flex-col">
                   <label className="text-xs font-black text-sky-800 mb-1.5 ml-1 flex items-center gap-1">
                     <span>🗓️ 出差總天數</span>
@@ -344,7 +365,6 @@
                   </div>
                 </div>
 
-                {/* 單據張數 */}
                 <div className="flex flex-col">
                   <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">檢附單據張數</label>
                   <div className="flex items-center gap-2">
@@ -361,7 +381,7 @@
               </div>
             </div>
 
-            {/* 國外生活費設定卡片 (日支額 × 匯率 × 總天數) */}
+            {/* 國外生活費設定卡片 */}
             <div className="bg-gradient-to-r from-sky-50 to-blue-50 rounded-3xl p-6 md:p-7 shadow-lg shadow-sky-900/5 border-2 border-sky-200 mb-8">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-sky-200/70">
                 <div>
@@ -383,9 +403,7 @@
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-4">
                 <div className="flex flex-col">
-                  <label className="text-xs font-black text-sky-900/70 mb-1.5 ml-1">
-                    每日日支額標準 (外幣)
-                  </label>
+                  <label className="text-xs font-black text-sky-900/70 mb-1.5 ml-1">每日日支額標準 (外幣)</label>
                   <input
                     type="number"
                     min="0"
@@ -419,15 +437,13 @@
                         NT$ {Math.round((parseFloat(formData.dailyPerDiem) || 0) * (parseFloat(formData.perDiemRate) || 0)).toLocaleString()}
                       </span>
                     </div>
-                    <div className="font-bold text-sky-950">
-                      × {currentTotalDays} 天
-                    </div>
+                    <div className="font-bold text-sky-950">× {currentTotalDays} 天</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* 出差行程與學術發表 (主辦單位、論文題目、會議起訖日期) */}
+            {/* 出差行程與學術發表 */}
             <div className="mb-8 bg-white rounded-3xl overflow-hidden shadow-xl shadow-sky-900/5 border-2 border-sky-100">
               <div className="bg-gradient-to-r from-sky-400 to-blue-500 px-6 py-4 flex items-center text-white">
                 <span className="font-black text-base flex items-center gap-2">
@@ -439,7 +455,6 @@
               </div>
 
               <div className="p-6 space-y-5">
-                {/* 第一列：起訖地點、主辦單位、會議名稱 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   <div className="flex flex-col">
                     <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">起訖地點</label>
@@ -472,7 +487,6 @@
                   </div>
                 </div>
 
-                {/* 第二列：論文題目、會議起訖日期 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2 border-t border-slate-100">
                   <div className="flex flex-col md:col-span-2">
                     <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">發表論文題目</label>
@@ -524,7 +538,6 @@
                   </div>
                 </div>
 
-                {/* 第三列：工作記要、飛機機票 */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2 border-t border-slate-100">
                   <div className="flex flex-col">
                     <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">工作記要</label>
@@ -576,15 +589,6 @@
               >
                 產生正式國外申報單 📄
               </button>
-            </div>
-
-            {/* 核銷小提醒 */}
-            <div className="mt-8 bg-white/70 p-5 rounded-2xl border border-sky-100 text-xs text-slate-500 space-y-1.5 shadow-sm">
-              <div className="font-bold text-sky-900 flex items-center gap-1.5 text-sm mb-2">
-                <span>💡</span> 境外核銷憑證貼心備忘
-              </div>
-              <p>• <b>機票核銷</b>：請檢附旅行業代收轉付收據、電子機票購票證明或登機證存根。</p>
-              <p>• <b>生活費匯率</b>：原則依出國前一天臺灣銀行現金賣出美元匯率為準，若以信用卡支付亦可檢附水單或帳單明細。</p>
             </div>
           </div>
         );

@@ -18,21 +18,23 @@
     <script type="text/babel">
       const { useState, useMemo, useEffect } = React;
 
-      // 預設空白表單狀態
+      // ⚠️ 請填入您的 Google Apps Script Web App 網址
+      const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbx7e8CwJg48lkZBIFjEUA3rxuNXwr9Ujfj8daNOrZFBuQO_PMKY9knokvgUoPdaEh7SrA/exec";
+
       const DEFAULT_FORM_DATA = {
         unit: "化學工程與材料工程學系",
         name: "",
-        idNumber: "",      // 學號 / 人員代號
+        idNumber: "",
         type: "教職員工生",
         reason: "",
         regFee: 0,
-        regOrganizer: "",  // 主辦單位
-        regConfName: "",   // 會議全名
-        regPaperTitle: "", // 發表論文題目
-        regConfStartM: "", // 會議開始月
-        regConfStartD: "", // 會議開始日
-        regConfEndM: "",   // 會議結束月
-        regConfEndD: "",   // 會議結束日
+        regOrganizer: "",
+        regConfName: "",
+        regPaperTitle: "",
+        regConfStartM: "",
+        regConfStartD: "",
+        regConfEndM: "",
+        regConfEndD: "",
         items: [
           {
             id: Date.now(),
@@ -47,27 +49,21 @@
       };
 
       function App() {
-        // 從 localStorage 讀取先前填寫的資料
         const [formData, setFormData] = useState(() => {
           try {
             const saved = localStorage.getItem("TKU_DOMESTIC_EXPENSE_DATA");
             return saved ? JSON.parse(saved) : DEFAULT_FORM_DATA;
           } catch (e) {
-            console.error("讀取本地儲存失敗", e);
             return DEFAULT_FORM_DATA;
           }
         });
 
-        // 當 formData 變動時，即時寫入 localStorage
         useEffect(() => {
           try {
             localStorage.setItem("TKU_DOMESTIC_EXPENSE_DATA", JSON.stringify(formData));
-          } catch (e) {
-            console.error("寫入本地儲存失敗", e);
-          }
+          } catch (e) {}
         }, [formData]);
 
-        // 清除重填功能
         const resetForm = () => {
           if (confirm("確定要清除目前已填寫的所有國內出差資料，重新填寫嗎？")) {
             localStorage.removeItem("TKU_DOMESTIC_EXPENSE_DATA");
@@ -75,55 +71,37 @@
           }
         };
 
-        // 計算單日總計 (交通加總 + 住宿與雜費)
         const calculateItemSubtotal = (item) => {
-          const transTotal = item.transports.reduce(
-            (sum, t) => sum + (parseFloat(t.amt) || 0),
-            0
-          );
+          const transTotal = item.transports.reduce((sum, t) => sum + (parseFloat(t.amt) || 0), 0);
           const hotel = parseFloat(item.hotel) || 0;
           const daily = parseFloat(item.daily) || 0;
-
-          // 住宿與雜費上限邏輯
           const hotelLimit = item.isHoliday ? 4500 : 3500;
           const finalHotel = hotel > hotelLimit ? hotelLimit : hotel;
           const finalDaily = daily > 400 ? 400 : daily;
-
           return transTotal + finalHotel + finalDaily;
         };
 
-        // 計算整份報單總金額與總天數（加入註冊費）
         const totals = useMemo(() => {
-          const itemsTotal = formData.items.reduce(
-            (sum, item) => sum + calculateItemSubtotal(item),
-            0
-          );
+          const itemsTotal = formData.items.reduce((sum, item) => sum + calculateItemSubtotal(item), 0);
           const regFee = parseFloat(formData.regFee) || 0;
-          const grandTotal = itemsTotal + regFee;
-          return { grandTotal, totalDays: formData.items.length };
+          return { grandTotal: itemsTotal + regFee, totalDays: formData.items.length };
         }, [formData.items, formData.regFee]);
 
-        // 更新住宿、雜費、假日勾選
         const updateItemField = (idx, field, value) => {
           const newItems = [...formData.items];
           newItems[idx][field] = value;
           setFormData({ ...formData, items: newItems });
         };
 
-        // 更新特定交通分段的日期、地點、車別、金額
         const updateTransportField = (itemIdx, transIdx, field, value) => {
           const newItems = [...formData.items];
           newItems[itemIdx].transports[transIdx][field] = value;
           setFormData({ ...formData, items: newItems });
         };
 
-        // 新增交通分段 (自動帶入上一段的日期與終點)
         const addTransportSegment = (itemIdx) => {
           const newItems = [...formData.items];
-          const lastSeg =
-            newItems[itemIdx].transports[
-              newItems[itemIdx].transports.length - 1
-            ];
+          const lastSeg = newItems[itemIdx].transports[newItems[itemIdx].transports.length - 1];
           newItems[itemIdx].transports.push({
             m: lastSeg.m,
             d: lastSeg.d,
@@ -135,17 +113,13 @@
           setFormData({ ...formData, items: newItems });
         };
 
-        // 刪除交通分段
         const removeTransportSegment = (itemIdx, transIdx) => {
           if (formData.items[itemIdx].transports.length <= 1) return;
           const newItems = [...formData.items];
-          newItems[itemIdx].transports = newItems[itemIdx].transports.filter(
-            (_, i) => i !== transIdx
-          );
+          newItems[itemIdx].transports = newItems[itemIdx].transports.filter((_, i) => i !== transIdx);
           setFormData({ ...formData, items: newItems });
         };
 
-        // 新增一日行程
         const addItem = () => {
           setFormData({
             ...formData,
@@ -156,15 +130,12 @@
                 hotel: 0,
                 daily: 0,
                 isHoliday: false,
-                transports: [
-                  { m: "", d: "", startLoc: "", endLoc: "", type: "", amt: 0 },
-                ],
+                transports: [{ m: "", d: "", startLoc: "", endLoc: "", type: "", amt: 0 }],
               },
             ],
           });
         };
 
-        // 刪除一日行程
         const removeItem = (index) => {
           if (formData.items.length <= 1) return;
           setFormData({
@@ -173,47 +144,29 @@
           });
         };
 
-        // 核心存檔邏輯與檔案命名
         const processDoc = async (response, templateName, data) => {
           try {
             const content = await response.arrayBuffer();
             if (content.byteLength < 100) throw new Error("範本讀取不完全。");
-
             const zip = new window.PizZip(content);
-            const doc = new window.docxtemplater(zip, {
-              paragraphLoop: true,
-              linebreaks: true,
-            });
+            const doc = new window.docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
             doc.render(data);
-
             const out = doc.getZip().generate({
               type: "blob",
-              mimeType:
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             });
 
-            // 正式命名規則
             let fileTitle = "出差旅費報告表";
-            if (templateName.includes("taxi")) {
-              fileTitle = "計程車證明單";
-            } else if (templateName.includes("Registration")) {
-              fileTitle = "註冊費申報單";
-            }
+            if (templateName.includes("taxi")) fileTitle = "計程車證明單";
+            else if (templateName.includes("Registration")) fileTitle = "註冊費申報單";
 
-            const finalFileName = `淡江化材_${fileTitle}_${
-              formData.name || "未命名"
-            }.docx`;
-
-            saveAs(out, finalFileName);
+            saveAs(out, `淡江化材_${fileTitle}_${formData.name || "未命名"}.docx`);
           } catch (e) {
             console.error(e);
-            alert(
-              `[產檔錯誤] ${templateName}: ${e.message}\n請確認範本檔案是否存在於 public 目錄。`
-            );
+            alert(`[產檔錯誤] ${templateName}: ${e.message}`);
           }
         };
 
-        // 讀取範本檔案
         const renderDoc = async (templateName, data) => {
           try {
             const response = await fetch(`./${templateName}`);
@@ -224,11 +177,44 @@
           }
         };
 
-        // 產生文件主流程
+        // 自動背景同步到 Google 試算表
+        const syncToGoogleSheet = async () => {
+          if (!formData.regPaperTitle && !formData.regConfName) return;
+          if (GOOGLE_SHEET_API_URL.includes("YOUR_SCRIPT_ID_HERE")) return;
+
+          const confDateStr = (formData.regConfStartM && formData.regConfStartD)
+            ? `${formData.regConfStartM}/${formData.regConfStartD} - ${formData.regConfEndM}/${formData.regConfEndD}`
+            : "";
+
+          try {
+            await fetch(GOOGLE_SHEET_API_URL, {
+              method: "POST",
+              mode: "no-cors",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                category: "國內出差",
+                name: formData.name,
+                type: formData.type,
+                idNumber: formData.idNumber,
+                confDate: confDateStr,
+                organizer: formData.regOrganizer,
+                confName: formData.regConfName,
+                paperTitle: formData.regPaperTitle
+              })
+            });
+            console.log("已自動同步發表成果至 Google 試算表");
+          } catch (err) {
+            console.error("同步至 Google 試算表失敗", err);
+          }
+        };
+
         const generateDocs = async () => {
           if (!formData.name) return alert("請輸入姓名後再產生文件！🌸");
 
-          // 1. 產生主表資料 (國內出差旅費申報單: travel_template.docx)
+          // 觸發背景同步至雲端試算表
+          syncToGoogleSheet();
+
+          // 1. 主表
           const mainData = {
             name: formData.name,
             id_number: formData.idNumber || "",
@@ -252,7 +238,7 @@
           };
           await renderDoc("./public/travel_template.docx", mainData);
 
-          // 2. 自動偵測計程車分段，並個別下載證明單 (taxi_template.docx)
+          // 2. 計程車
           for (const item of formData.items) {
             for (const t of item.transports) {
               if (t.type.includes("計程車")) {
@@ -272,7 +258,7 @@
             }
           }
 
-          // 3. 自動偵測是否有註冊費支出，若有則下載註冊費申報單 (Registration_template.docx)
+          // 3. 註冊費
           const regFeeAmt = parseFloat(formData.regFee) || 0;
           if (regFeeAmt > 0) {
             const confPeriodStr = (formData.regConfStartM && formData.regConfStartD)
@@ -299,7 +285,7 @@
 
         return (
           <div className="max-w-6xl mx-auto p-4 md:p-8 my-6 md:my-10">
-            {/* 頂部切換分頁標籤 (Tab) - 三方串連 */}
+            {/* 頂部切換三頁籤 */}
             <div className="flex justify-center gap-3 mb-6 flex-wrap">
               <span className="bg-amber-500 text-white font-black px-6 py-2.5 rounded-2xl shadow-md flex items-center gap-2 ring-2 ring-amber-300">
                 <span>🇹🇼</span> 國內出差報帳
@@ -318,7 +304,7 @@
               </a>
             </div>
 
-            {/* 頂部俏皮標題卡片 (右上角附帶：自動儲存中徽章與清除重填按鈕) */}
+            {/* 頂部俏皮標題卡片 */}
             <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-amber-900/5 border-2 border-amber-200/80 mb-8 relative overflow-hidden text-center">
               <div className="absolute top-4 right-4 flex items-center gap-2">
                 <span className="text-[11px] font-bold text-amber-700 bg-amber-100/80 px-2.5 py-1 rounded-full border border-amber-200 flex items-center gap-1">
@@ -345,11 +331,11 @@
                 </span>
               </h1>
               <p className="text-slate-400 text-xs mt-2 font-medium">
-                輕鬆填寫出差行程・自動計算金額上限・瀏覽器自動記憶進度・一鍵產出正式報表
+                輕鬆填寫出差行程・產檔時自動彙整發表成果至雲端・一鍵產出正式報表
               </p>
             </div>
 
-            {/* 基本資料卡片 (包含 學號/人員代號) */}
+            {/* 基本資料卡片 */}
             <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-amber-900/5 border-2 border-amber-100 mb-8">
               <div className="flex items-center gap-2 font-black text-amber-700 text-base mb-5 pb-3 border-b border-amber-100">
                 <span className="text-xl">👤</span> 出差基本資料
@@ -364,35 +350,25 @@
                     className="border-2 border-slate-100 bg-amber-50/20 p-3 rounded-2xl focus:border-amber-400 focus:bg-white outline-none transition font-medium"
                     placeholder="請輸入姓名"
                     value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
                 </div>
                 <div className="flex flex-col">
-                  <label className="text-xs font-black text-slate-500 mb-2 ml-1">
-                    學號 / 人員代號
-                  </label>
+                  <label className="text-xs font-black text-slate-500 mb-2 ml-1">學號 / 人員代號</label>
                   <input
                     className="border-2 border-slate-100 bg-amber-50/20 p-3 rounded-2xl focus:border-amber-400 focus:bg-white outline-none transition font-medium font-mono"
                     placeholder="例如: 410410001"
                     value={formData.idNumber}
-                    onChange={(e) =>
-                      setFormData({ ...formData, idNumber: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, idNumber: e.target.value })}
                   />
                 </div>
                 <div className="flex flex-col">
-                  <label className="text-xs font-black text-slate-500 mb-2 ml-1">
-                    身分類別
-                  </label>
+                  <label className="text-xs font-black text-slate-500 mb-2 ml-1">身分類別</label>
                   <div className="relative">
                     <select
                       className="w-full border-2 border-slate-100 bg-amber-50/20 p-3 rounded-2xl focus:border-amber-400 focus:bg-white outline-none transition font-medium appearance-none cursor-pointer"
                       value={formData.type}
-                      onChange={(e) =>
-                        setFormData({ ...formData, type: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                     >
                       <option>教職員工生</option>
                       <option>校外專家</option>
@@ -401,22 +377,18 @@
                   </div>
                 </div>
                 <div className="flex flex-col">
-                  <label className="text-xs font-black text-slate-500 mb-2 ml-1">
-                    出差事由
-                  </label>
+                  <label className="text-xs font-black text-slate-500 mb-2 ml-1">出差事由</label>
                   <input
                     className="border-2 border-slate-100 bg-amber-50/20 p-3 rounded-2xl focus:border-amber-400 focus:bg-white outline-none transition font-medium"
                     placeholder="例如: 2026 化工年會發表"
                     value={formData.reason}
-                    onChange={(e) =>
-                      setFormData({ ...formData, reason: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                   />
                 </div>
               </div>
             </div>
 
-            {/* 註冊費與會議明細卡片 (含 會議日期 月/日 - 月/日) */}
+            {/* 註冊費與會議明細卡片 */}
             <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-3xl p-6 md:p-7 shadow-lg shadow-orange-900/5 border-2 border-orange-200/80 mb-8 relative">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-orange-200/60">
                 <div>
@@ -426,7 +398,7 @@
                     <span className="bg-orange-200 text-orange-800 text-[10px] font-bold px-2 py-0.5 rounded-full">選填</span>
                   </h3>
                   <p className="text-xs text-orange-700/80 mt-1">
-                    若有報名研討會並需報支註冊費請填寫，系統會自動下載專用申報單唷！
+                    填寫後產出 Word 報表時，系統會自動同步至系上發表成果彙整表唷！
                   </p>
                 </div>
                 <div className="flex items-center bg-white px-4 py-2.5 rounded-2xl border-2 border-orange-200 shadow-sm w-full sm:w-auto justify-end">
@@ -437,52 +409,38 @@
                     className="w-32 outline-none text-right font-mono font-black text-orange-600 text-xl bg-transparent"
                     placeholder="0"
                     value={formData.regFee}
-                    onChange={(e) =>
-                      setFormData({ ...formData, regFee: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, regFee: e.target.value })}
                   />
                 </div>
               </div>
 
-              {/* 主辦單位、會議名稱、論文題目與會議日期 (四欄排版) */}
+              {/* 四欄排版 */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="flex flex-col">
-                  <label className="text-xs font-black text-orange-900/70 mb-1.5 ml-1">
-                    主辦單位名稱
-                  </label>
+                  <label className="text-xs font-black text-orange-900/70 mb-1.5 ml-1">主辦單位名稱</label>
                   <input
                     className="border-2 border-orange-100 p-2.5 rounded-2xl bg-white focus:border-orange-400 outline-none text-sm transition font-medium placeholder:text-slate-300"
                     placeholder="例如: 台灣化學工程學會"
                     value={formData.regOrganizer}
-                    onChange={(e) =>
-                      setFormData({ ...formData, regOrganizer: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, regOrganizer: e.target.value })}
                   />
                 </div>
                 <div className="flex flex-col">
-                  <label className="text-xs font-black text-orange-900/70 mb-1.5 ml-1">
-                    研討會 / 會議全名
-                  </label>
+                  <label className="text-xs font-black text-orange-900/70 mb-1.5 ml-1">研討會 / 會議全名</label>
                   <input
                     className="border-2 border-orange-100 p-2.5 rounded-2xl bg-white focus:border-orange-400 outline-none text-sm transition font-medium placeholder:text-slate-300"
                     placeholder="例如: 2026 化工年會暨專題研討會"
                     value={formData.regConfName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, regConfName: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, regConfName: e.target.value })}
                   />
                 </div>
                 <div className="flex flex-col">
-                  <label className="text-xs font-black text-orange-900/70 mb-1.5 ml-1">
-                    發表論文題目
-                  </label>
+                  <label className="text-xs font-black text-orange-900/70 mb-1.5 ml-1">發表論文題目</label>
                   <input
                     className="border-2 border-orange-100 p-2.5 rounded-2xl bg-white focus:border-orange-400 outline-none text-sm transition font-medium placeholder:text-slate-300"
                     placeholder="例如: Advanced Materials for CO2 Capture"
                     value={formData.regPaperTitle}
-                    onChange={(e) =>
-                      setFormData({ ...formData, regPaperTitle: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, regPaperTitle: e.target.value })}
                   />
                 </div>
                 <div className="flex flex-col">
@@ -495,18 +453,14 @@
                         className="w-8 text-center text-sm font-mono outline-none"
                         placeholder="M"
                         value={formData.regConfStartM}
-                        onChange={(e) =>
-                          setFormData({ ...formData, regConfStartM: e.target.value })
-                        }
+                        onChange={(e) => setFormData({ ...formData, regConfStartM: e.target.value })}
                       />
                       <span className="text-slate-300">/</span>
                       <input
                         className="w-8 text-center text-sm font-mono outline-none"
                         placeholder="D"
                         value={formData.regConfStartD}
-                        onChange={(e) =>
-                          setFormData({ ...formData, regConfStartD: e.target.value })
-                        }
+                        onChange={(e) => setFormData({ ...formData, regConfStartD: e.target.value })}
                       />
                     </div>
                     <span className="text-slate-400 font-bold px-0.5">-</span>
@@ -515,18 +469,14 @@
                         className="w-8 text-center text-sm font-mono outline-none"
                         placeholder="M"
                         value={formData.regConfEndM}
-                        onChange={(e) =>
-                          setFormData({ ...formData, regConfEndM: e.target.value })
-                        }
+                        onChange={(e) => setFormData({ ...formData, regConfEndM: e.target.value })}
                       />
                       <span className="text-slate-300">/</span>
                       <input
                         className="w-8 text-center text-sm font-mono outline-none"
                         placeholder="D"
                         value={formData.regConfEndD}
-                        onChange={(e) =>
-                          setFormData({ ...formData, regConfEndD: e.target.value })
-                        }
+                        onChange={(e) => setFormData({ ...formData, regConfEndD: e.target.value })}
                       />
                     </div>
                   </div>
@@ -540,15 +490,12 @@
                 key={item.id}
                 className="mb-8 bg-white rounded-3xl overflow-hidden shadow-xl shadow-amber-900/5 border-2 border-amber-100 transition-all"
               >
-                {/* 行程卡片 Header */}
                 <div className="bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-300 px-6 py-4 flex justify-between items-center text-slate-800">
                   <div className="flex items-center gap-2">
                     <span className="bg-white/80 w-8 h-8 rounded-2xl flex items-center justify-center font-black text-amber-800 shadow-sm text-sm">
                       D{idx + 1}
                     </span>
-                    <span className="font-black text-base tracking-wide">
-                      第 {idx + 1} 天行程與交通
-                    </span>
+                    <span className="font-black text-base tracking-wide">第 {idx + 1} 天行程與交通</span>
                   </div>
                   {formData.items.length > 1 && (
                     <button
@@ -560,7 +507,6 @@
                   )}
                 </div>
 
-                {/* 交通分段表格 */}
                 <div className="overflow-x-auto p-2">
                   <table className="w-full text-sm text-left">
                     <thead>
@@ -575,38 +521,21 @@
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {item.transports.map((t, tIdx) => (
-                        <tr
-                          key={tIdx}
-                          className="hover:bg-amber-50/50 transition-colors group"
-                        >
+                        <tr key={tIdx} className="hover:bg-amber-50/50 transition-colors group">
                           <td className="p-3">
                             <div className="flex gap-1 justify-center items-center bg-slate-50 px-2 py-1 rounded-xl border border-slate-200/80">
                               <input
                                 className="w-8 bg-transparent text-center focus:font-bold outline-none font-mono"
                                 placeholder="M"
                                 value={t.m}
-                                onChange={(e) =>
-                                  updateTransportField(
-                                    idx,
-                                    tIdx,
-                                    "m",
-                                    e.target.value
-                                  )
-                                }
+                                onChange={(e) => updateTransportField(idx, tIdx, "m", e.target.value)}
                               />
                               <span className="text-slate-300">/</span>
                               <input
                                 className="w-8 bg-transparent text-center focus:font-bold outline-none font-mono"
                                 placeholder="D"
                                 value={t.d}
-                                onChange={(e) =>
-                                  updateTransportField(
-                                    idx,
-                                    tIdx,
-                                    "d",
-                                    e.target.value
-                                  )
-                                }
+                                onChange={(e) => updateTransportField(idx, tIdx, "d", e.target.value)}
                               />
                             </div>
                           </td>
@@ -615,14 +544,7 @@
                               className="w-full border-b border-dashed border-slate-200 focus:border-amber-400 outline-none bg-transparent p-1 font-medium transition"
                               placeholder="例如: 淡水"
                               value={t.startLoc}
-                              onChange={(e) =>
-                                updateTransportField(
-                                  idx,
-                                  tIdx,
-                                  "startLoc",
-                                  e.target.value
-                                )
-                              }
+                              onChange={(e) => updateTransportField(idx, tIdx, "startLoc", e.target.value)}
                             />
                           </td>
                           <td className="p-3">
@@ -630,14 +552,7 @@
                               className="w-full border-b border-dashed border-slate-200 focus:border-amber-400 outline-none bg-transparent p-1 font-medium transition"
                               placeholder="例如: 台中"
                               value={t.endLoc}
-                              onChange={(e) =>
-                                updateTransportField(
-                                  idx,
-                                  tIdx,
-                                  "endLoc",
-                                  e.target.value
-                                )
-                              }
+                              onChange={(e) => updateTransportField(idx, tIdx, "endLoc", e.target.value)}
                             />
                           </td>
                           <td className="p-3">
@@ -645,14 +560,7 @@
                               className="w-full border-b border-dashed border-slate-200 focus:border-amber-400 outline-none bg-transparent p-1 font-medium transition"
                               placeholder="高鐵 / 計程車 / 台鐵"
                               value={t.type}
-                              onChange={(e) =>
-                                updateTransportField(
-                                  idx,
-                                  tIdx,
-                                  "type",
-                                  e.target.value
-                                )
-                              }
+                              onChange={(e) => updateTransportField(idx, tIdx, "type", e.target.value)}
                             />
                           </td>
                           <td className="p-3">
@@ -662,14 +570,7 @@
                                 className="w-full bg-transparent outline-none text-right font-mono font-black text-slate-700"
                                 type="number"
                                 value={t.amt}
-                                onChange={(e) =>
-                                  updateTransportField(
-                                    idx,
-                                    tIdx,
-                                    "amt",
-                                    e.target.value
-                                  )
-                                }
+                                onChange={(e) => updateTransportField(idx, tIdx, "amt", e.target.value)}
                               />
                             </div>
                           </td>
@@ -690,7 +591,6 @@
                   </table>
                 </div>
 
-                {/* 住宿、雜費與單日小計 */}
                 <div className="p-5 bg-amber-50/30 border-t border-amber-100 flex flex-col md:flex-row gap-5 items-center justify-between">
                   <button
                     onClick={() => addTransportSegment(idx)}
@@ -706,9 +606,7 @@
                         className="w-20 border-b-2 border-amber-200 ml-1 p-1 text-right font-mono font-bold text-amber-700 outline-none focus:border-amber-500"
                         type="number"
                         value={item.hotel}
-                        onChange={(e) =>
-                          updateItemField(idx, "hotel", e.target.value)
-                        }
+                        onChange={(e) => updateItemField(idx, "hotel", e.target.value)}
                       />
                     </label>
 
@@ -717,9 +615,7 @@
                         className="mr-2 w-4 h-4 rounded-lg accent-amber-500 cursor-pointer"
                         type="checkbox"
                         checked={item.isHoliday}
-                        onChange={(e) =>
-                          updateItemField(idx, "isHoliday", e.target.checked)
-                        }
+                        onChange={(e) => updateItemField(idx, "isHoliday", e.target.checked)}
                       />
                       <span>假日上限 $4,500</span>
                     </label>
@@ -730,9 +626,7 @@
                         className="w-16 border-b-2 border-amber-200 ml-1 p-1 text-right font-mono font-bold text-amber-700 outline-none focus:border-amber-500"
                         type="number"
                         value={item.daily}
-                        onChange={(e) =>
-                          updateItemField(idx, "daily", e.target.value)
-                        }
+                        onChange={(e) => updateItemField(idx, "daily", e.target.value)}
                       />
                     </label>
                   </div>
@@ -780,16 +674,6 @@
                 <span>產生正式 Word 報表</span>
                 <span className="group-hover:translate-x-1 transition-transform">📄</span>
               </button>
-            </div>
-
-            {/* 底部貼心提示 */}
-            <div className="mt-8 text-center">
-              <div className="inline-flex items-center gap-2 bg-white/80 px-5 py-2.5 rounded-full border border-amber-200/80 text-amber-800 text-xs font-medium shadow-sm">
-                <span>💡</span>
-                <span>
-                  貼心小提示：交通若填寫「計程車」或有填寫「註冊費」，系統會自動同時下載專用表格喔！
-                </span>
-              </div>
             </div>
           </div>
         );
