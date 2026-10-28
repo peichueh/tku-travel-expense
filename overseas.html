@@ -23,6 +23,7 @@
           unit: "化學工程與材料工程學系",
           name: "",
           type: "教職員工生",
+          idNumber: "", // 學號 / 人員代號
           reason: "",
           startYear: "2026",
           startMonth: "",
@@ -98,6 +99,8 @@
             const overseasData = {
               name: formData.name,
               type: formData.type,
+              id_number: formData.idNumber || "",
+              idNumber: formData.idNumber || "",
               reason: formData.reason,
               start_year: formData.startYear,
               start_m: formData.startMonth,
@@ -145,18 +148,22 @@
 
         return (
           <div className="max-w-6xl mx-auto p-4 md:p-8 my-6 md:my-10">
-            {/* 頂部切換分頁標籤 (Tab) */}
-            <div className="flex justify-center gap-3 mb-6">
-              <a
-                href="index.html"
-                className="bg-white/80 hover:bg-white text-slate-500 font-black px-6 py-2.5 rounded-2xl border border-sky-100 shadow-sm transition flex items-center gap-2 cursor-pointer"
-              >
-                <span>🇹🇼</span> 國內出差報帳
-              </a>
-              <span className="bg-sky-500 text-white font-black px-6 py-2.5 rounded-2xl shadow-md flex items-center gap-2 ring-2 ring-sky-300">
-                <span>✈️</span> 境外出差報帳 (新制)
-              </span>
-            </div>
+            <!-- 頂部切換分頁標籤 (Tab) 三方串連 -->
+	<div className="flex justify-center gap-3 mb-6 flex-wrap">
+  	<a
+   	 href="index.html"
+   	 className="bg-white/80 hover:bg-white text-slate-500 font-black px-6 py-2.5 rounded-2xl border border-amber-100 shadow-sm transition flex items-center gap-2 cursor-pointer">
+  	  <span>🇹🇼</span> 國內出差報帳
+  	</a>
+ 	 <span className="bg-amber-500 text-white font-black px-6 py-2.5 rounded-2xl shadow-md flex items-center gap-2 ring-2 ring-amber-300">
+ 	   <span>✈️</span> 境外出差報帳
+ 	 </span>
+ 	 <a
+ 	   href="summary.html"
+  	  className="bg-white/80 hover:bg-white text-slate-500 font-black px-6 py-2.5 rounded-2xl border border-amber-100 shadow-sm transition flex items-center gap-2 cursor-pointer">
+ 	   <span>📚</span> 會議發表成果彙整
+ 	 </a>
+	</div>
 
             {/* 標題卡片 */}
             <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-sky-900/5 border-2 border-sky-200/80 mb-8 relative text-center">
@@ -174,12 +181,12 @@
               </p>
             </div>
 
-            {/* 基本資料卡片 */}
+            {/* 基本資料卡片 (調整為 4 欄並排) */}
             <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-sky-900/5 border-2 border-sky-100 mb-8">
               <div className="flex items-center gap-2 font-black text-sky-700 text-base mb-5 pb-3 border-b border-sky-100">
                 <span className="text-xl">📋</span> 基本資料與出差期間
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 mb-5">
                 <div className="flex flex-col">
                   <label className="text-xs font-black text-slate-500 mb-2 ml-1">
                     姓名 <span className="text-rose-500">*</span>
@@ -201,6 +208,16 @@
                     <option>教職員工生</option>
                     <option>校外專家</option>
                   </select>
+                </div>
+                {/* 新增欄位：學號 / 人員代號 */}
+                <div className="flex flex-col">
+                  <label className="text-xs font-black text-slate-500 mb-2 ml-1">學號 / 人員代號</label>
+                  <input
+                    className="border-2 border-slate-100 bg-sky-50/20 p-3 rounded-2xl focus:border-sky-400 focus:bg-white outline-none transition font-medium"
+                    placeholder="輸入學號或職號"
+                    value={formData.idNumber}
+                    onChange={(e) => setFormData({ ...formData, idNumber: e.target.value })}
+                  />
                 </div>
                 <div className="flex flex-col">
                   <label className="text-xs font-black text-slate-500 mb-2 ml-1">出差事由</label>
@@ -368,7 +385,7 @@
               </div>
             </div>
 
-            {/* 出差行程與交通 (新增：主辦單位、發表論文題目) */}
+            {/* 出差行程與交通 (含主辦單位、發表論文題目、會議日期) */}
             <div className="mb-8 bg-white rounded-3xl overflow-hidden shadow-xl shadow-sky-900/5 border-2 border-sky-100">
               <div className="bg-gradient-to-r from-sky-400 to-blue-500 px-6 py-4 flex items-center text-white">
                 <span className="font-black text-base flex items-center gap-2">
@@ -402,7 +419,6 @@
                     />
                   </div>
 
-                  {/* 新增欄位 1：主辦單位 */}
                   <div className="flex flex-col">
                     <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">主辦單位</label>
                     <input
@@ -456,7 +472,7 @@
                     </div>
                   </div>
 
-                  {/* 新增欄位 2：發表論文題目 (跨兩欄寬度) */}
+                  {/* 發表論文題目 */}
                   <div className="flex flex-col md:col-span-2">
                     <label className="text-xs font-black text-slate-500 mb-1.5 ml-1">發表論文題目</label>
                     <input

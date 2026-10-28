@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>淡江化材系 - 國內外會議發表成果彙整表</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @media print {
+        .no-print { display: none !important; }
+        body { background: white !important; }
+        .print-shadow-none { box-shadow: none !important; border-color: #cbd5e1 !important; }
+      }
+    </style>
+  </head>
+  <body class="bg-amber-50/40 min-h-screen text-slate-700 antialiased selection:bg-amber-200">
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useState, useMemo, useEffect } = React;
+
+      // 預設示範資料（欄位完全與 index.html / overseas.html 一致）
+      const INITIAL_DATA = [
+        {
+          id: 1,
+          category: "境外出差",
+          name: "王小明",
+          type: "教職員工生",
+          idNumber: "410410001",
+          confDate: "07/15 - 07/19",
+          organizer: "American Chemical Society",
+          confName: "ACS Fall 2026 National Meeting & Expo",
+          paperTitle: "Highly Efficient Photocatalysts for Hydrogen Evolution Reaction"
+        },
+        {
+          id: 2,
+          category: "國內出差",
+          name: "李佩佩",
+          type: "教職員工生",
+          idNumber: "411410022",
+          confDate: "11/20 - 11/21",
+          organizer: "台灣化學工程學會",
+          confName: "2026 台灣化工年會暨專題研討會",
+          paperTitle: "聚合物薄膜於二氧化碳捕獲之分離效能研究"
+        },
+        {
+          id: 3,
+          category: "境外出差",
+          name: "陳教授",
+          type: "教職員工生",
+          idNumber: "T12345",
+          confDate: "09/02 - 09/06",
+          organizer: "European Materials Research Society",
+          confName: "E-MRS 2026 Fall Meeting",
+          paperTitle: "Advanced Nanostructured Materials for Green Energy Storage"
+        }
+      ];
+
+      function App() {
+        const [records, setRecords] = useState(() => {
+          const saved = localStorage.getItem("TKU_CHEM_PAPERS_V2");
+          return saved ? JSON.parse(saved) : INITIAL_DATA;
+        });
+
+        const [searchTerm, setSearchTerm] = useState("");
+        const [filterCategory, setFilterCategory] = useState("ALL"); // ALL, 國內出差, 境外出差
+
+        // 新增彈窗表單資料
+        const [isModalOpen, setIsModalOpen] = useState(false);
+        const [newRecord, setNewRecord] = useState({
+          category: "國內出差",
+          name: "",
+          type: "教職員工生",
+          idNumber: "",
+          confDate: "",
+          organizer: "",
+          confName: "",
+          paperTitle: ""
+        });
+
+        useEffect(() => {
+          localStorage.setItem("TKU_CHEM_PAPERS_V2", JSON.stringify(records));
+        }, [records]);
+
+        // 統計數字
+        const stats = useMemo(() => {
+          const total = records.length;
+          const domestic = records.filter(r => r.category === "國內出差").length;
+          const overseas = records.filter(r => r.category === "境外出差").length;
+          return { total, domestic, overseas };
+        }, [records]);
+
+        // 篩選後資料
+        const filteredRecords = useMemo(() => {
+          return records.filter((r) => {
+            const matchCat = filterCategory === "ALL" || r.category === filterCategory;
+            const search = searchTerm.trim().toLowerCase();
+            const matchSearch =
+              !search ||
+              r.name.toLowerCase().includes(search) ||
+              r.idNumber.toLowerCase().includes(search) ||
+              r.paperTitle.toLowerCase().includes(search) ||
+              r.confName.toLowerCase().includes(search) ||
+              r.organizer.toLowerCase().includes(search);
+            return matchCat && matchSearch;
+          });
+        }, [records, filterCategory, searchTerm]);
+
+        // 新增一筆
+        const handleAddRecord = (e) => {
+          e.preventDefault();
+          if (!newRecord.name || !newRecord.paperTitle) {
+            return alert("請填寫發表人姓名與論文題目！");
+          }
+          setRecords([{ id: Date.now(), ...newRecord }, ...records]);
+          setIsModalOpen(false);
+          setNewRecord({
+            category: "國內出差",
+            name: "",
+            type: "教職員工生",
+            idNumber: "",
+            confDate: "",
+            organizer: "",
+            confName: "",
+            paperTitle: ""
+          });
+        };
+
+        // 刪除
+        const handleDelete = (id) => {
+          if (confirm("確定要刪除這筆發表成果紀錄嗎？")) {
+            setRecords(records.filter(r => r.id !== id));
+          }
+        };
+
+        // 匯出 CSV (Excel 可直接開，含 UTF-8 BOM)
+        const exportCSV = () => {
+          if (filteredRecords.length === 0) return alert("目前無資料可供匯出！");
+          const headers = ["類別", "姓名", "身分類別", "學號/人員代號", "會議日期", "主辦單位", "研討會/會議名稱", "發表論文題目"];
+          const rows = filteredRecords.map(r => [
+            `"${r.category}"`,
+            `"${r.name}"`,
+            `"${r.type}"`,
+            `"\t${r.idNumber}"`, // 加 \t 防止 Excel 把學號長數字吃掉格式
+            `"${r.confDate || ''}"`,
+            `"${(r.organizer || '').replace(/"/g, '""')}"`,
+            `"${(r.confName || '').replace(/"/g, '""')}"`,
+            `"${(r.paperTitle || '').replace(/"/g, '""')}"`
+          ]);
+
+          const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.setAttribute("download", `化材系_會議發表成果彙整表_${new Date().toISOString().slice(0, 10)}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        };
+
+        return (
+          <div className="max-w-7xl mx-auto p-4 md:p-8 my-6 md:my-10">
+            {/* 頂部切換三頁籤 */}
+            <div className="flex justify-center gap-3 mb-6 no-print flex-wrap">
+              <a
+                href="index.html"
+                className="bg-white/80 hover:bg-white text-slate-500 font-black px-6 py-2.5 rounded-2xl border border-amber-100 shadow-sm transition flex items-center gap-2 cursor-pointer"
+              >
+                <span>🇹🇼</span> 國內出差報帳
+              </a>
+              <a
+                href="overseas.html"
+                className="bg-white/80 hover:bg-white text-slate-500 font-black px-6 py-2.5 rounded-2xl border border-amber-100 shadow-sm transition flex items-center gap-2 cursor-pointer"
+              >
+                <span>✈️</span> 境外出差報帳
+              </a>
+              <span className="bg-amber-500 text-white font-black px-6 py-2.5 rounded-2xl shadow-md flex items-center gap-2 ring-2 ring-amber-300">
+                <span>📚</span> 會議發表成果彙整
+              </span>
+            </div>
+
+            {/* 標題卡片 */}
+            <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl shadow-amber-900/5 border-2 border-amber-200/80 mb-8 relative overflow-hidden text-center print-shadow-none">
+              <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-800 text-xs font-black px-4 py-1.5 rounded-full mb-3 tracking-wider">
+                <span>🌟 淡江大學 化學工程與材料工程學系</span>
+              </div>
+              <h1 className="text-2xl md:text-4xl font-black text-slate-800 tracking-tight">
+                國內外會議發表成果彙整表
+              </h1>
+              <p className="text-slate-400 text-xs mt-2 font-medium no-print">
+                整合自系上出差報帳系統・即時彙整學術會議與研討會論文發表成果
+              </p>
+            </div>
+
+            {/* 簡潔統計儀表板 */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 no-print">
+              <div className="bg-white rounded-2xl p-5 border-2 border-amber-100 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-black text-slate-400">總發表篇數</p>
+                  <p className="text-3xl font-black text-slate-800 font-mono mt-1">{stats.total}</p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-2xl font-black">
+                  📝
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl p-5 border-2 border-orange-100 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-black text-slate-400">國內學術年會 / 研討會</p>
+                  <p className="text-3xl font-black text-orange-600 font-mono mt-1">{stats.domestic}</p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-700 flex items-center justify-center text-2xl font-black">
+                  🇹🇼
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl p-5 border-2 border-sky-100 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-black text-slate-400">境外國際學術會議</p>
+                  <p className="text-3xl font-black text-sky-600 font-mono mt-1">{stats.overseas}</p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center text-2xl font-black">
+                  ✈️
+                </div>
+              </div>
+            </div>
+
+            {/* 工具列：搜尋、篩選與匯出按鈕 */}
+            <div className="bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-amber-100 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between no-print">
+              <div className="flex flex-wrap gap-2 items-center w-full md:w-auto">
+                <button
+                  onClick={() => setFilterCategory("ALL")}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition ${
+                    filterCategory === "ALL"
+                      ? "bg-slate-800 text-white shadow"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  全部 ({records.length})
+                </button>
+                <button
+                  onClick={() => setFilterCategory("國內出差")}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition ${
+                    filterCategory === "國內出差"
+                      ? "bg-orange-500 text-white shadow"
+                      : "bg-orange-50 text-orange-700 hover:bg-orange-100"
+                  }`}
+                >
+                  🇹🇼 國內研討會 ({stats.domestic})
+                </button>
+                <button
+                  onClick={() => setFilterCategory("境外出差")}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition ${
+                    filterCategory === "境外出差"
+                      ? "bg-sky-600 text-white shadow"
+                      : "bg-sky-50 text-sky-700 hover:bg-sky-100"
+                  }`}
+                >
+                  ✈️ 境外國際會議 ({stats.overseas})
+                </button>
+              </div>
+
+              <div className="flex gap-2 w-full md:w-auto">
+                <input
+                  type="text"
+                  placeholder="搜尋發表人、學號、題目、會議..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-sm focus:border-amber-400 outline-none w-full md:w-64"
+                />
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-xs font-black shadow transition whitespace-nowrap flex items-center gap-1 cursor-pointer"
+                >
+                  <span>➕ 手動登記</span>
+                </button>
+                <button
+                  onClick={exportCSV}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-black shadow transition whitespace-nowrap flex items-center gap-1 cursor-pointer"
+                  title="匯出 Excel 相容 CSV"
+                >
+                  <span>📊 匯出 Excel</span>
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-black shadow transition whitespace-nowrap flex items-center gap-1 cursor-pointer"
+                >
+                  <span>🖨️ 列印</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 資料成果清單表格 */}
+            <div className="bg-white rounded-3xl overflow-hidden shadow-xl shadow-amber-900/5 border-2 border-amber-100 print-shadow-none">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead>
+                    <tr className="bg-amber-100/60 text-amber-950 font-black text-xs border-b border-amber-200">
+                      <th className="p-4 w-12 text-center">#</th>
+                      <th className="p-4 w-28 text-center">類別</th>
+                      <th className="p-4 w-36">發表人資訊</th>
+                      <th className="p-4">發表論文題目</th>
+                      <th className="p-4">研討會 / 會議全名 與 主辦單位</th>
+                      <th className="p-4 w-28 text-center">會議日期</th>
+                      <th className="p-4 w-16 text-center no-print">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredRecords.length === 0 ? (
+                      <tr>
+                        <td colSpan="7" className="p-10 text-center text-slate-400 font-medium">
+                          目前沒有符合篩選條件的發表成果資料 🍃
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredRecords.map((r, idx) => (
+                        <tr key={r.id} className="hover:bg-amber-50/40 transition">
+                          <td className="p-4 text-center font-mono font-bold text-slate-400 text-xs">
+                            {idx + 1}
+                          </td>
+                          <td className="p-4 text-center">
+                            <span
+                              className={`text-[11px] font-black px-2.5 py-1 rounded-full ${
+                                r.category === "境外出差"
+                                  ? "bg-sky-100 text-sky-800 border border-sky-200"
+                                  : "bg-orange-100 text-orange-800 border border-orange-200"
+                              }`}
+                            >
+                              {r.category === "境外出差" ? "✈️ 境外" : "🇹🇼 國內"}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <div className="font-black text-slate-800">{r.name}</div>
+                            <div className="text-xs text-slate-400 font-mono">
+                              {r.idNumber ? r.idNumber : "—"}
+                            </div>
+                            <div className="text-[10px] text-amber-700/80 font-medium">{r.type}</div>
+                          </td>
+                          <td className="p-4">
+                            <div className="font-bold text-slate-800 leading-snug">
+                              {r.paperTitle}
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <div className="font-bold text-slate-700">{r.confName || "—"}</div>
+                            <div className="text-xs text-slate-400 mt-0.5">
+                              {r.organizer ? `主辦：${r.organizer}` : ""}
+                            </div>
+                          </td>
+                          <td className="p-4 text-center font-mono text-xs text-slate-600 whitespace-nowrap">
+                            {r.confDate || "—"}
+                          </td>
+                          <td className="p-4 text-center no-print">
+                            <button
+                              onClick={() => handleDelete(r.id)}
+                              className="text-slate-300 hover:text-rose-500 transition font-bold text-sm"
+                              title="刪除"
+                            >
+                              🗑️
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* 新增紀錄彈窗 (Modal) */}
+            {isModalOpen && (
+              <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl border border-amber-200">
+                  <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
+                    <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                      <span>➕</span> 登記發表成果
+                    </h3>
+                    <button
+                      onClick={() => setIsModalOpen(false)}
+                      className="text-slate-400 hover:text-slate-600 text-xl font-bold"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleAddRecord} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-black text-slate-500 mb-1 block">出差類別</label>
+                        <select
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-amber-400 bg-amber-50/20"
+                          value={newRecord.category}
+                          onChange={(e) => setNewRecord({ ...newRecord, category: e.target.value })}
+                        >
+                          <option value="國內出差">🇹🇼 國內出差</option>
+                          <option value="境外出差">✈️ 境外出差</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-black text-slate-500 mb-1 block">身分類別</label>
+                        <select
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-amber-400 bg-amber-50/20"
+                          value={newRecord.type}
+                          onChange={(e) => setNewRecord({ ...newRecord, type: e.target.value })}
+                        >
+                          <option>教職員工生</option>
+                          <option>校外專家</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-black text-slate-500 mb-1 block">發表人姓名 *</label>
+                        <input
+                          required
+                          placeholder="例如: 王小明"
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-amber-400 bg-amber-50/20"
+                          value={newRecord.name}
+                          onChange={(e) => setNewRecord({ ...newRecord, name: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-black text-slate-500 mb-1 block">學號 / 人員代號</label>
+                        <input
+                          placeholder="例如: 410410001"
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-amber-400 bg-amber-50/20"
+                          value={newRecord.idNumber}
+                          onChange={(e) => setNewRecord({ ...newRecord, idNumber: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-black text-slate-500 mb-1 block">發表論文題目 *</label>
+                      <input
+                        required
+                        placeholder="請輸入完整論文題目"
+                        className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-amber-400 bg-amber-50/20"
+                        value={newRecord.paperTitle}
+                        onChange={(e) => setNewRecord({ ...newRecord, paperTitle: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-black text-slate-500 mb-1 block">研討會 / 會議全名</label>
+                      <input
+                        placeholder="例如: 2026 化工年會"
+                        className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-amber-400 bg-amber-50/20"
+                        value={newRecord.confName}
+                        onChange={(e) => setNewRecord({ ...newRecord, confName: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-black text-slate-500 mb-1 block">主辦單位</label>
+                        <input
+                          placeholder="例如: 台灣化學工程學會"
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-amber-400 bg-amber-50/20"
+                          value={newRecord.organizer}
+                          onChange={(e) => setNewRecord({ ...newRecord, organizer: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-black text-slate-500 mb-1 block">會議日期</label>
+                        <input
+                          placeholder="例如: 11/20 - 11/22"
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-amber-400 bg-amber-50/20"
+                          value={newRecord.confDate}
+                          onChange={(e) => setNewRecord({ ...newRecord, confDate: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-3">
+                      <button
+                        type="button"
+                        onClick={() => setIsModalOpen(false)}
+                        className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition cursor-pointer"
+                      >
+                        取消
+                      </button>
+                      <button
+                        type="submit"
+                        className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2.5 rounded-xl text-xs font-black shadow transition cursor-pointer"
+                      >
+                        儲存登記
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* 頁尾提示 */}
+            <div className="mt-8 text-center no-print">
+              <span className="text-xs text-slate-400 font-medium">
+                淡江大學 化學工程與材料工程學系 © 2026 會議發表成果管理
+              </span>
+            </div>
+          </div>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<App />);
+    </script>
+  </body>
+</html>
