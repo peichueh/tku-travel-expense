@@ -22,72 +22,78 @@
     <script type="text/babel">
       const { useState, useMemo, useEffect } = React;
 
-      // ⚠️ 請填入您的 Google Apps Script Web App 網址
-      const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbx7e8CwJg48lkZBIFjEUA3rxuNXwr9Ujfj8daNOrZFBuQO_PMKY9knokvgUoPdaEh7SrA/exec";
+      // 若有 Google Apps Script Web App URL 請填入此處；若無則完整本機保存
+      const GOOGLE_SHEET_API_URL = "";
+
+      const INITIAL_DATA = [
+        {
+          id: 1,
+          category: "境外出差",
+          name: "王小明",
+          type: "教職員工生",
+          idNumber: "410410001",
+          confDate: "07/15 - 07/19",
+          organizer: "American Chemical Society",
+          confName: "ACS Fall 2026 National Meeting & Expo",
+          paperTitle: "Highly Efficient Photocatalysts for Hydrogen Evolution Reaction",
+          grantAmt: 20000
+        },
+        {
+          id: 2,
+          category: "國內出差",
+          name: "李佩佩",
+          type: "教職員工生",
+          idNumber: "411410022",
+          confDate: "11/20 - 11/21",
+          organizer: "台灣化學工程學會",
+          confName: "2026 台灣化工年會暨專題研討會",
+          paperTitle: "聚合物薄膜於二氧化碳捕獲之分離效能研究",
+          grantAmt: 5000
+        }
+      ];
 
       function App() {
-        const [records, setRecords] = useState([]);
-        const [isLoading, setIsLoading] = useState(true);
-        const [searchTerm, setSearchTerm] = useState("");
-        const [filterCategory, setFilterCategory] = useState("ALL"); // ALL, 國內出差, 境外出差
-
-        // 從 Google 試算表讀取最新全系資料
-        const fetchSheetData = async () => {
-          setIsLoading(true);
+        const [records, setRecords] = useState(() => {
           try {
-            if (GOOGLE_SHEET_API_URL.includes("YOUR_SCRIPT_ID_HERE")) {
-              // 若尚未設定網址，載入本地預設範例
-              setRecords([
-                {
-                  id: 1,
-                  category: "境外出差",
-                  name: "王小明 (範例)",
-                  type: "教職員工生",
-                  idNumber: "410410001",
-                  confDate: "07/15 - 07/19",
-                  organizer: "American Chemical Society",
-                  confName: "ACS Fall 2026 National Meeting & Expo",
-                  paperTitle: "Highly Efficient Photocatalysts for Hydrogen Evolution Reaction"
-                },
-                {
-                  id: 2,
-                  category: "國內出差",
-                  name: "李佩佩 (範例)",
-                  type: "教職員工生",
-                  idNumber: "411410022",
-                  confDate: "11/20 - 11/21",
-                  organizer: "台灣化學工程學會",
-                  confName: "2026 台灣化工年會暨專題研討會",
-                  paperTitle: "聚合物薄膜於二氧化碳捕獲之分離效能研究"
-                }
-              ]);
-              setIsLoading(false);
-              return;
-            }
-
-            const res = await fetch(GOOGLE_SHEET_API_URL);
-            const json = await res.json();
-            if (json.status === "success") {
-              setRecords(json.data);
-            }
-          } catch (err) {
-            console.error("無法取得 Google 試算表資料", err);
-            alert("讀取雲端試算表失敗，請確認網路連線或 Apps Script 權限！");
-          } finally {
-            setIsLoading(false);
+            const saved = localStorage.getItem("TKU_CHEM_PAPERS_V3");
+            return saved ? JSON.parse(saved) : INITIAL_DATA;
+          } catch (e) {
+            return INITIAL_DATA;
           }
-        };
+        });
 
+        const [searchTerm, setSearchTerm] = useState("");
+        const [filterCategory, setFilterCategory] = useState("ALL");
+
+        // 彈窗狀態：新增與編輯共用
+        const [isModalOpen, setIsModalOpen] = useState(false);
+        const [editingId, setEditingId] = useState(null); // null 為新增，有 id 為編輯
+        const [formData, setFormData] = useState({
+          category: "國內出差",
+          name: "",
+          type: "教職員工生",
+          idNumber: "",
+          confDate: "",
+          organizer: "",
+          confName: "",
+          paperTitle: "",
+          grantAmt: 0
+        });
+
+        // 自動儲存至 localStorage
         useEffect(() => {
-          fetchSheetData();
-        }, []);
+          try {
+            localStorage.setItem("TKU_CHEM_PAPERS_V3", JSON.stringify(records));
+          } catch (e) {}
+        }, [records]);
 
-        // 統計篇數
+        // 統計資訊
         const stats = useMemo(() => {
           const total = records.length;
           const domestic = records.filter(r => r.category === "國內出差").length;
           const overseas = records.filter(r => r.category === "境外出差").length;
-          return { total, domestic, overseas };
+          const totalGrant = records.reduce((sum, r) => sum + (parseFloat(r.grantAmt) || 0), 0);
+          return { total, domestic, overseas, totalGrant };
         }, [records]);
 
         // 篩選與搜尋
@@ -106,10 +112,80 @@
           });
         }, [records, filterCategory, searchTerm]);
 
-        // 匯出 Excel 相容 CSV
+        // 開啟新增彈窗
+        const openCreateModal = () => {
+          setEditingId(null);
+          setFormData({
+            category: "國內出差",
+            name: "",
+            type: "教職員工生",
+            idNumber: "",
+            confDate: "",
+            organizer: "",
+            confName: "",
+            paperTitle: "",
+            grantAmt: 0
+          });
+          setIsModalOpen(true);
+        };
+
+        // 開啟編輯彈窗
+        const openEditModal = (item) => {
+          setEditingId(item.id);
+          setFormData({
+            category: item.category || "國內出差",
+            name: item.name || "",
+            type: item.type || "教職員工生",
+            idNumber: item.idNumber || "",
+            confDate: item.confDate || "",
+            organizer: item.organizer || "",
+            confName: item.confName || "",
+            paperTitle: item.paperTitle || "",
+            grantAmt: item.grantAmt || 0
+          });
+          setIsModalOpen(true);
+        };
+
+        // 儲存表單 (新增 或 修改)
+        const handleSubmitForm = (e) => {
+          e.preventDefault();
+          if (!formData.name.trim() || !formData.paperTitle.trim()) {
+            return alert("請填寫發表人姓名與發表論文題目！🌿");
+          }
+
+          if (editingId !== null) {
+            // 修改既有紀錄
+            setRecords(records.map(r => r.id === editingId ? { ...r, ...formData, grantAmt: parseFloat(formData.grantAmt) || 0 } : r));
+          } else {
+            // 新增一筆
+            const newEntry = {
+              id: Date.now(),
+              ...formData,
+              grantAmt: parseFloat(formData.grantAmt) || 0
+            };
+            setRecords([newEntry, ...records]);
+          }
+          setIsModalOpen(false);
+        };
+
+        // 刪除紀錄
+        const handleDeleteRecord = (id) => {
+          if (confirm("確定要刪除這筆發表成果紀錄嗎？此動作無法復原。")) {
+            setRecords(records.filter(r => r.id !== id));
+          }
+        };
+
+        // 恢復範例預設
+        const handleResetDemo = () => {
+          if (confirm("確定要重設為範例示範資料嗎？現有登記內容將被覆蓋。")) {
+            setRecords(INITIAL_DATA);
+          }
+        };
+
+        // 匯出 CSV (含 UTF-8 BOM，Excel 直接點開不亂碼)
         const exportCSV = () => {
           if (filteredRecords.length === 0) return alert("目前無資料可供匯出！");
-          const headers = ["類別", "姓名", "身分類別", "學號/人員代號", "會議日期", "主辦單位", "研討會/會議名稱", "發表論文題目"];
+          const headers = ["類別", "姓名", "身分類別", "學號/人員代號", "會議日期", "主辦單位", "研討會/會議名稱", "發表論文題目", "募款補助金額(NT$)"];
           const rows = filteredRecords.map(r => [
             `"${r.category}"`,
             `"${r.name}"`,
@@ -118,7 +194,8 @@
             `"${r.confDate || ''}"`,
             `"${(r.organizer || '').replace(/"/g, '""')}"`,
             `"${(r.confName || '').replace(/"/g, '""')}"`,
-            `"${(r.paperTitle || '').replace(/"/g, '""')}"`
+            `"${(r.paperTitle || '').replace(/"/g, '""')}"`,
+            `"${r.grantAmt || 0}"`
           ]);
 
           const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
@@ -158,11 +235,11 @@
               <div className="absolute top-4 right-4 flex items-center gap-2 no-print">
                 <button
                   type="button"
-                  onClick={fetchSheetData}
-                  className="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-3 py-1.5 rounded-full transition border border-emerald-200 flex items-center gap-1 cursor-pointer"
-                  title="從 Google 試算表同步最新資料"
+                  onClick={handleResetDemo}
+                  className="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-3 py-1 rounded-full transition border border-emerald-200 cursor-pointer"
+                  title="重新載入預設示範資料"
                 >
-                  <span className={isLoading ? "animate-spin" : ""}>🔄</span> 即時重新整理
+                  ↺ 恢復示範
                 </button>
               </div>
 
@@ -173,12 +250,12 @@
                 國內外會議發表成果彙整表
               </h1>
               <p className="text-slate-400 text-xs mt-2 font-medium no-print">
-                雲端連動 Google 試算表・即時彙整師生發表於國內外學術年會與研討會論文
+                支援成果自主輸入、線上編修、募款補助金額登記與 Excel 一鍵匯出
               </p>
             </div>
 
-            {/* 統計儀表板 */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 no-print">
+            {/* 統計儀表板 (含募款補助總金額) */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8 no-print">
               <div className="bg-white rounded-2xl p-5 border-2 border-emerald-100 shadow-sm flex items-center justify-between">
                 <div>
                   <p className="text-xs font-black text-slate-400">總發表篇數</p>
@@ -188,27 +265,41 @@
                   📝
                 </div>
               </div>
+
               <div className="bg-white rounded-2xl p-5 border-2 border-teal-100 shadow-sm flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-black text-slate-400">國內學術年會 / 研討會</p>
+                  <p className="text-xs font-black text-slate-400">國內學術年會</p>
                   <p className="text-3xl font-black text-teal-600 font-mono mt-1">{stats.domestic}</p>
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-teal-100 text-teal-700 flex items-center justify-center text-2xl font-black">
                   🇹🇼
                 </div>
               </div>
+
               <div className="bg-white rounded-2xl p-5 border-2 border-cyan-100 shadow-sm flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-black text-slate-400">境外國際學術會議</p>
+                  <p className="text-xs font-black text-slate-400">境外國際會議</p>
                   <p className="text-3xl font-black text-cyan-700 font-mono mt-1">{stats.overseas}</p>
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-cyan-100 text-cyan-700 flex items-center justify-center text-2xl font-black">
                   ✈️
                 </div>
               </div>
+
+              <div className="bg-white rounded-2xl p-5 border-2 border-amber-200 bg-amber-50/30 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-black text-amber-800">募款補助總額</p>
+                  <p className="text-2xl font-black text-amber-600 font-mono mt-1">
+                    NT$ {stats.totalGrant.toLocaleString()}
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center text-2xl font-black">
+                  💰
+                </div>
+              </div>
             </div>
 
-            {/* 工具列：搜尋、篩選與匯出按鈕 */}
+            {/* 工具列：搜尋、篩選與功能按鈕 */}
             <div className="bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-emerald-100 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between no-print">
               <div className="flex flex-wrap gap-2 items-center w-full md:w-auto">
                 <button
@@ -243,14 +334,20 @@
                 </button>
               </div>
 
-              <div className="flex gap-2 w-full md:w-auto">
+              <div className="flex flex-wrap gap-2 w-full md:w-auto">
                 <input
                   type="text"
                   placeholder="搜尋發表人、學號、題目、會議..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-sm focus:border-emerald-400 outline-none w-full md:w-64"
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-sm focus:border-emerald-400 outline-none w-full md:w-60"
                 />
+                <button
+                  onClick={openCreateModal}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-black shadow transition whitespace-nowrap flex items-center gap-1 cursor-pointer"
+                >
+                  <span>➕ 手動登記成果</span>
+                </button>
                 <button
                   onClick={exportCSV}
                   className="bg-teal-700 hover:bg-teal-800 text-white px-4 py-2 rounded-xl text-xs font-black shadow transition whitespace-nowrap flex items-center gap-1 cursor-pointer"
@@ -278,26 +375,21 @@
                       <th className="p-4 w-36">發表人資訊</th>
                       <th className="p-4">發表論文題目</th>
                       <th className="p-4">研討會 / 會議全名 與 主辦單位</th>
-                      <th className="p-4 w-32 text-center">會議日期</th>
+                      <th className="p-4 w-28 text-center">會議日期</th>
+                      <th className="p-4 w-32 text-right">募款補助金額</th>
+                      <th className="p-4 w-28 text-center no-print">操作</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {isLoading ? (
+                    {filteredRecords.length === 0 ? (
                       <tr>
-                        <td colSpan="6" className="p-12 text-center text-emerald-700 font-bold">
-                          <span className="inline-block animate-spin mr-2">🔄</span>
-                          正在連線 Google 試算表同步全系發表成果...
-                        </td>
-                      </tr>
-                    ) : filteredRecords.length === 0 ? (
-                      <tr>
-                        <td colSpan="6" className="p-10 text-center text-slate-400 font-medium">
-                          目前試算表中尚無發表成果資料 🍃
+                        <td colSpan="8" className="p-10 text-center text-slate-400 font-medium">
+                          目前沒有符合篩選條件的發表成果資料 🍃
                         </td>
                       </tr>
                     ) : (
                       filteredRecords.map((r, idx) => (
-                        <tr key={idx} className="hover:bg-emerald-50/40 transition">
+                        <tr key={r.id || idx} className="hover:bg-emerald-50/40 transition">
                           <td className="p-4 text-center font-mono font-bold text-slate-400 text-xs">
                             {idx + 1}
                           </td>
@@ -333,6 +425,27 @@
                           <td className="p-4 text-center font-mono text-xs text-slate-600 whitespace-nowrap">
                             {r.confDate || "—"}
                           </td>
+                          <td className="p-4 text-right font-mono font-bold text-amber-700 whitespace-nowrap">
+                            {r.grantAmt > 0 ? `NT$ ${parseFloat(r.grantAmt).toLocaleString()}` : <span className="text-slate-300 font-normal">NT$ 0</span>}
+                          </td>
+                          <td className="p-4 text-center no-print">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => openEditModal(r)}
+                                className="text-slate-400 hover:text-emerald-600 transition p-1 cursor-pointer"
+                                title="修改"
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                onClick={() => handleDeleteRecord(r.id)}
+                                className="text-slate-400 hover:text-rose-500 transition p-1 cursor-pointer"
+                                title="刪除"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))
                     )}
@@ -341,10 +454,152 @@
               </div>
             </div>
 
+            {/* 新增 / 修改 彈窗表單 (Modal) */}
+            {isModalOpen && (
+              <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl border border-emerald-200 max-h-[90vh] overflow-y-auto">
+                  <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
+                    <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                      <span>{editingId !== null ? "✏️ 修改發表成果" : "➕ 登記發表成果"}</span>
+                    </h3>
+                    <button
+                      onClick={() => setIsModalOpen(false)}
+                      className="text-slate-400 hover:text-slate-600 text-xl font-bold cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleSubmitForm} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-black text-slate-500 mb-1 block">出差類別</label>
+                        <select
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-emerald-400 bg-emerald-50/20"
+                          value={formData.category}
+                          onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                        >
+                          <option value="國內出差">🇹🇼 國內出差</option>
+                          <option value="境外出差">✈️ 境外出差</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-black text-slate-500 mb-1 block">身分類別</label>
+                        <select
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-emerald-400 bg-emerald-50/20"
+                          value={formData.type}
+                          onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                        >
+                          <option>教職員工生</option>
+                          <option>校外專家</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-black text-slate-500 mb-1 block">發表人姓名 *</label>
+                        <input
+                          required
+                          placeholder="例如: 王小明"
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-emerald-400 bg-emerald-50/20"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-black text-slate-500 mb-1 block">學號 / 人員代號</label>
+                        <input
+                          placeholder="例如: 410410001"
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-emerald-400 bg-emerald-50/20 font-mono"
+                          value={formData.idNumber}
+                          onChange={(e) => setFormData({ ...formData, idNumber: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-black text-slate-500 mb-1 block">發表論文題目 *</label>
+                      <input
+                        required
+                        placeholder="請輸入論文完整題目"
+                        className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-emerald-400 bg-emerald-50/20"
+                        value={formData.paperTitle}
+                        onChange={(e) => setFormData({ ...formData, paperTitle: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-black text-slate-500 mb-1 block">研討會 / 會議全名</label>
+                      <input
+                        placeholder="例如: 2026 化工年會"
+                        className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-emerald-400 bg-emerald-50/20"
+                        value={formData.confName}
+                        onChange={(e) => setFormData({ ...formData, confName: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-black text-slate-500 mb-1 block">主辦單位</label>
+                        <input
+                          placeholder="例如: 台灣化學工程學會"
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-emerald-400 bg-emerald-50/20"
+                          value={formData.organizer}
+                          onChange={(e) => setFormData({ ...formData, organizer: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-black text-slate-500 mb-1 block">會議日期</label>
+                        <input
+                          placeholder="例如: 11/20 - 11/22"
+                          className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-emerald-400 bg-emerald-50/20 font-mono"
+                          value={formData.confDate}
+                          onChange={(e) => setFormData({ ...formData, confDate: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    {/* 募款補助金額 */}
+                    <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-200">
+                      <label className="text-xs font-black text-amber-900 mb-1 block flex items-center gap-1">
+                        <span>💰 募款補助金額 (NT$)</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        className="w-full border p-2.5 rounded-xl text-sm outline-none focus:border-amber-400 bg-white font-mono font-bold text-amber-800"
+                        value={formData.grantAmt}
+                        onChange={(e) => setFormData({ ...formData, grantAmt: e.target.value })}
+                      />
+                      <p className="text-[11px] text-amber-700/70 mt-1">若此行成果有申請系上募款專案經費補助，請輸入核定金額。</p>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-3">
+                      <button
+                        type="button"
+                        onClick={() => setIsModalOpen(false)}
+                        className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition cursor-pointer"
+                      >
+                        取消
+                      </button>
+                      <button
+                        type="submit"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl text-xs font-black shadow transition cursor-pointer"
+                      >
+                        {editingId !== null ? "儲存修改" : "確認登記"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
             {/* 頁尾提示 */}
             <div className="mt-8 text-center no-print">
               <span className="text-xs text-slate-400 font-medium">
-                淡江大學 化學工程與材料工程學系 © 2026 會議發表成果雲端庫
+                淡江大學 化學工程與材料工程學系 © 2026 會議發表成果管理
               </span>
             </div>
           </div>
