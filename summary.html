@@ -22,52 +22,19 @@
     <script type="text/babel">
       const { useState, useMemo, useEffect } = React;
 
-      // 若有 Google Apps Script Web App URL 請填入此處；若無則完整本機保存
+      // 您的 Google Apps Script Web App URL
       const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbx7e8CwJg48lkZBIFjEUA3rxuNXwr9Ujfj8daNOrZFBuQO_PMKY9knokvgUoPdaEh7SrA/exec";
 
-      const INITIAL_DATA = [
-        {
-          id: 1,
-          category: "境外出差",
-          name: "王小明",
-          type: "教職員工生",
-          idNumber: "410410001",
-          confDate: "07/15 - 07/19",
-          organizer: "American Chemical Society",
-          confName: "ACS Fall 2026 National Meeting & Expo",
-          paperTitle: "Highly Efficient Photocatalysts for Hydrogen Evolution Reaction",
-          grantAmt: 20000
-        },
-        {
-          id: 2,
-          category: "國內出差",
-          name: "李佩佩",
-          type: "教職員工生",
-          idNumber: "411410022",
-          confDate: "11/20 - 11/21",
-          organizer: "台灣化學工程學會",
-          confName: "2026 台灣化工年會暨專題研討會",
-          paperTitle: "聚合物薄膜於二氧化碳捕獲之分離效能研究",
-          grantAmt: 5000
-        }
-      ];
-
       function App() {
-        const [records, setRecords] = useState(() => {
-          try {
-            const saved = localStorage.getItem("TKU_CHEM_PAPERS_V3");
-            return saved ? JSON.parse(saved) : INITIAL_DATA;
-          } catch (e) {
-            return INITIAL_DATA;
-          }
-        });
-
+        const [records, setRecords] = useState([]);
+        const [isLoading, setIsLoading] = useState(true);
+        const [isSyncing, setIsSyncing] = useState(false);
         const [searchTerm, setSearchTerm] = useState("");
         const [filterCategory, setFilterCategory] = useState("ALL");
 
         // 彈窗狀態：新增與編輯共用
         const [isModalOpen, setIsModalOpen] = useState(false);
-        const [editingId, setEditingId] = useState(null); // null 為新增，有 id 為編輯
+        const [editingId, setEditingId] = useState(null);
         const [formData, setFormData] = useState({
           category: "國內出差",
           name: "",
@@ -80,12 +47,50 @@
           grantAmt: 0
         });
 
-        // 自動儲存至 localStorage
-        useEffect(() => {
+        // 核心：從 Google Sheets 載入資料
+        const fetchSheetData = async () => {
+          setIsLoading(true);
           try {
-            localStorage.setItem("TKU_CHEM_PAPERS_V3", JSON.stringify(records));
-          } catch (e) {}
-        }, [records]);
+            const res = await fetch(GOOGLE_SHEET_API_URL);
+            const json = await res.json();
+            if (json.status === "success" && json.data) {
+              setRecords(json.data);
+              localStorage.setItem("TKU_CHEM_PAPERS_V3", JSON.stringify(json.data));
+            }
+          } catch (err) {
+            console.error("無法連線 Google Sheets，嘗試載入本地暫存", err);
+            const saved = localStorage.getItem("TKU_CHEM_PAPERS_V3");
+            if (saved) setRecords(JSON.parse(saved));
+          } finally {
+            setIsLoading(false);
+          }
+        };
+
+        // 第一次開啟網頁時自動抓取 Google Sheets
+        useEffect(() => {
+          fetchSheetData();
+        }, []);
+
+        // 同步回寫至 Google Sheets
+        const syncAllToGoogleSheet = async (updatedRecords) => {
+          setIsSyncing(true);
+          try {
+            await fetch(GOOGLE_SHEET_API_URL, {
+              method: "POST",
+              mode: "no-cors",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "syncAll",
+                data: updatedRecords
+              })
+            });
+            console.log("已將異動資料同步至 Google 試算表");
+          } catch (e) {
+            console.error("同步至 Google 試算表失敗", e);
+          } finally {
+            setIsSyncing(false);
+          }
+        };
 
         // 統計資訊
         const stats = useMemo(() => {
@@ -153,36 +158,38 @@
             return alert("請填寫發表人姓名與發表論文題目！🌿");
           }
 
+          let newRecords = [];
           if (editingId !== null) {
-            // 修改既有紀錄
-            setRecords(records.map(r => r.id === editingId ? { ...r, ...formData, grantAmt: parseFloat(formData.grantAmt) || 0 } : r));
+            newRecords = records.map(r => r.id === editingId ? { ...r, ...formData, grantAmt: parseFloat(formData.grantAmt) || 0 } : r);
           } else {
-            // 新增一筆
             const newEntry = {
-              id: Date.now(),
+              id: "item_" + Date.now(),
+              timestamp: new Date().toLocaleString("zh-TW", { timeZone: "Asia/Taipei" }),
               ...formData,
               grantAmt: parseFloat(formData.grantAmt) || 0
             };
-            setRecords([newEntry, ...records]);
+            newRecords = [newEntry, ...records];
           }
+
+          setRecords(newRecords);
+          localStorage.setItem("TKU_CHEM_PAPERS_V3", JSON.stringify(newRecords));
           setIsModalOpen(false);
+
+          // 同步儲存至 Google 試算表
+          syncAllToGoogleSheet(newRecords);
         };
 
         // 刪除紀錄
         const handleDeleteRecord = (id) => {
-          if (confirm("確定要刪除這筆發表成果紀錄嗎？此動作無法復原。")) {
-            setRecords(records.filter(r => r.id !== id));
+          if (confirm("確定要刪除這筆發表成果紀錄嗎？此動作將同步至雲端試算表。")) {
+            const newRecords = records.filter(r => r.id !== id);
+            setRecords(newRecords);
+            localStorage.setItem("TKU_CHEM_PAPERS_V3", JSON.stringify(newRecords));
+            syncAllToGoogleSheet(newRecords);
           }
         };
 
-        // 恢復範例預設
-        const handleResetDemo = () => {
-          if (confirm("確定要重設為範例示範資料嗎？現有登記內容將被覆蓋。")) {
-            setRecords(INITIAL_DATA);
-          }
-        };
-
-        // 匯出 CSV (含 UTF-8 BOM，Excel 直接點開不亂碼)
+        // 匯出 CSV (Excel 相容)
         const exportCSV = () => {
           if (filteredRecords.length === 0) return alert("目前無資料可供匯出！");
           const headers = ["類別", "姓名", "身分類別", "學號/人員代號", "會議日期", "主辦單位", "研討會/會議名稱", "發表論文題目", "募款補助金額(NT$)"];
@@ -235,12 +242,17 @@
               <div className="absolute top-4 right-4 flex items-center gap-2 no-print">
                 <button
                   type="button"
-                  onClick={handleResetDemo}
-                  className="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-3 py-1 rounded-full transition border border-emerald-200 cursor-pointer"
-                  title="重新載入預設示範資料"
+                  onClick={fetchSheetData}
+                  className="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-3 py-1.5 rounded-full transition border border-emerald-200 flex items-center gap-1 cursor-pointer"
+                  title="從 Google 試算表拉取最新全系資料"
                 >
-                  ↺ 恢復示範
+                  <span className={isLoading ? "animate-spin" : ""}>🔄</span> 同步試算表
                 </button>
+                {isSyncing && (
+                  <span className="text-[11px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold animate-pulse">
+                    正在寫入雲端...
+                  </span>
+                )}
               </div>
 
               <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-800 text-xs font-black px-4 py-1.5 rounded-full mb-3 tracking-wider">
@@ -250,11 +262,11 @@
                 國內外會議發表成果彙整表
               </h1>
               <p className="text-slate-400 text-xs mt-2 font-medium no-print">
-                支援成果自主輸入、線上編修、募款補助金額登記與 Excel 一鍵匯出
+                雙向連動 Google 試算表・支援成果自建修改、募款補助金額登記與 Excel 一鍵匯出
               </p>
             </div>
 
-            {/* 統計儀表板 (含募款補助總金額) */}
+            {/* 統計儀表板 */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8 no-print">
               <div className="bg-white rounded-2xl p-5 border-2 border-emerald-100 shadow-sm flex items-center justify-between">
                 <div>
@@ -299,7 +311,7 @@
               </div>
             </div>
 
-            {/* 工具列：搜尋、篩選與功能按鈕 */}
+            {/* 工具列 */}
             <div className="bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-emerald-100 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between no-print">
               <div className="flex flex-wrap gap-2 items-center w-full md:w-auto">
                 <button
@@ -364,7 +376,7 @@
               </div>
             </div>
 
-            {/* 資料成果清單表格 */}
+            {/* 資料清單表格 */}
             <div className="bg-white rounded-3xl overflow-hidden shadow-xl shadow-emerald-900/5 border-2 border-emerald-100 print-shadow-none">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
@@ -381,10 +393,17 @@
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredRecords.length === 0 ? (
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan="8" className="p-12 text-center text-emerald-700 font-bold">
+                          <span className="inline-block animate-spin mr-2">🔄</span>
+                          正在連線 Google 試算表讀取全系發表成果...
+                        </td>
+                      </tr>
+                    ) : filteredRecords.length === 0 ? (
                       <tr>
                         <td colSpan="8" className="p-10 text-center text-slate-400 font-medium">
-                          目前沒有符合篩選條件的發表成果資料 🍃
+                          目前 Google 試算表中尚無發表成果資料 🍃
                         </td>
                       </tr>
                     ) : (
@@ -454,7 +473,7 @@
               </div>
             </div>
 
-            {/* 新增 / 修改 彈窗表單 (Modal) */}
+            {/* 新增 / 修改 彈窗表單 */}
             {isModalOpen && (
               <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                 <div className="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl border border-emerald-200 max-h-[90vh] overflow-y-auto">
@@ -560,7 +579,6 @@
                       </div>
                     </div>
 
-                    {/* 募款補助金額 */}
                     <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-200">
                       <label className="text-xs font-black text-amber-900 mb-1 block flex items-center gap-1">
                         <span>💰 募款補助金額 (NT$)</span>
@@ -573,7 +591,7 @@
                         value={formData.grantAmt}
                         onChange={(e) => setFormData({ ...formData, grantAmt: e.target.value })}
                       />
-                      <p className="text-[11px] text-amber-700/70 mt-1">若此行成果有申請系上募款專案經費補助，請輸入核定金額。</p>
+                      <p className="text-[11px] text-amber-700/70 mt-1">若此項成果有申請系上募款專案經費補助，請輸入核定金額。</p>
                     </div>
 
                     <div className="flex justify-end gap-3 pt-3">
@@ -596,7 +614,6 @@
               </div>
             )}
 
-            {/* 頁尾提示 */}
             <div className="mt-8 text-center no-print">
               <span className="text-xs text-slate-400 font-medium">
                 淡江大學 化學工程與材料工程學系 © 2026 會議發表成果管理
