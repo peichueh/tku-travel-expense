@@ -23,7 +23,7 @@
       const { useState, useMemo, useEffect } = React;
 
       // 您的 Google Apps Script Web App URL
-      const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbzgyLPU8fthO-jmtcIUfhBtUef7JoJASZgP435rksTm0MLDh9bepESO3noXtqRE1rCBVA/exec";
+      const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbx7e8CwJg48lkZBIFjEUA3rxuNXwr9Ujfj8daNOrZFBuQO_PMKY9knokvgUoPdaEh7SrA/exec";
 
       function App() {
         const [records, setRecords] = useState([]);
@@ -47,31 +47,35 @@
           grantAmt: 0
         });
 
-        // 核心：從 Google Sheets 載入資料
+        // 核心功能 1：從 Google 試算表抓取最新資料
         const fetchSheetData = async () => {
           setIsLoading(true);
           try {
             const res = await fetch(GOOGLE_SHEET_API_URL);
             const json = await res.json();
-            if (json.status === "success" && json.data) {
+            if (json.status === "success" && Array.isArray(json.data)) {
               setRecords(json.data);
               localStorage.setItem("TKU_CHEM_PAPERS_V3", JSON.stringify(json.data));
+            } else {
+              throw new Error("回傳格式不符");
             }
           } catch (err) {
-            console.error("無法連線 Google Sheets，嘗試載入本地暫存", err);
+            console.warn("無法從 Google 試算表讀取，改用本地快取", err);
             const saved = localStorage.getItem("TKU_CHEM_PAPERS_V3");
-            if (saved) setRecords(JSON.parse(saved));
+            if (saved) {
+              setRecords(JSON.parse(saved));
+            }
           } finally {
             setIsLoading(false);
           }
         };
 
-        // 第一次開啟網頁時自動抓取 Google Sheets
+        // 網頁開啟時自動載入 Google 試算表
         useEffect(() => {
           fetchSheetData();
         }, []);
 
-        // 同步回寫至 Google Sheets
+        // 核心功能 2：將異動同步回傳給 Google 試算表
         const syncAllToGoogleSheet = async (updatedRecords) => {
           setIsSyncing(true);
           try {
@@ -84,11 +88,11 @@
                 data: updatedRecords
               })
             });
-            console.log("已將異動資料同步至 Google 試算表");
+            console.log("已成功發送同步請求至 Google 試算表");
           } catch (e) {
             console.error("同步至 Google 試算表失敗", e);
           } finally {
-            setIsSyncing(false);
+            setTimeout(() => setIsSyncing(false), 2000);
           }
         };
 
@@ -108,11 +112,11 @@
             const search = searchTerm.trim().toLowerCase();
             const matchSearch =
               !search ||
-              (r.name && r.name.toLowerCase().includes(search)) ||
-              (r.idNumber && r.idNumber.toLowerCase().includes(search)) ||
-              (r.paperTitle && r.paperTitle.toLowerCase().includes(search)) ||
-              (r.confName && r.confName.toLowerCase().includes(search)) ||
-              (r.organizer && r.organizer.toLowerCase().includes(search));
+              (r.name && String(r.name).toLowerCase().includes(search)) ||
+              (r.idNumber && String(r.idNumber).toLowerCase().includes(search)) ||
+              (r.paperTitle && String(r.paperTitle).toLowerCase().includes(search)) ||
+              (r.confName && String(r.confName).toLowerCase().includes(search)) ||
+              (r.organizer && String(r.organizer).toLowerCase().includes(search));
             return matchCat && matchSearch;
           });
         }, [records, filterCategory, searchTerm]);
@@ -175,13 +179,13 @@
           localStorage.setItem("TKU_CHEM_PAPERS_V3", JSON.stringify(newRecords));
           setIsModalOpen(false);
 
-          // 同步儲存至 Google 試算表
+          // 同步寫入 Google 試算表
           syncAllToGoogleSheet(newRecords);
         };
 
         // 刪除紀錄
         const handleDeleteRecord = (id) => {
-          if (confirm("確定要刪除這筆發表成果紀錄嗎？此動作將同步至雲端試算表。")) {
+          if (confirm("確定要刪除這筆成果紀錄嗎？此動作將同步從 Google 試算表移除。")) {
             const newRecords = records.filter(r => r.id !== id);
             setRecords(newRecords);
             localStorage.setItem("TKU_CHEM_PAPERS_V3", JSON.stringify(newRecords));
@@ -249,8 +253,8 @@
                   <span className={isLoading ? "animate-spin" : ""}>🔄</span> 同步試算表
                 </button>
                 {isSyncing && (
-                  <span className="text-[11px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold animate-pulse">
-                    正在寫入雲端...
+                  <span className="text-[11px] bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full font-bold animate-pulse border border-amber-300">
+                    正在寫入試算表...
                   </span>
                 )}
               </div>
@@ -266,7 +270,7 @@
               </p>
             </div>
 
-            {/* 統計儀表板 */}
+            {/* 統計儀表板 (含募款補助總額) */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8 no-print">
               <div className="bg-white rounded-2xl p-5 border-2 border-emerald-100 shadow-sm flex items-center justify-between">
                 <div>
@@ -445,7 +449,7 @@
                             {r.confDate || "—"}
                           </td>
                           <td className="p-4 text-right font-mono font-bold text-amber-700 whitespace-nowrap">
-                            {r.grantAmt > 0 ? `NT$ ${parseFloat(r.grantAmt).toLocaleString()}` : <span className="text-slate-300 font-normal">NT$ 0</span>}
+                            {parseFloat(r.grantAmt) > 0 ? `NT$ ${parseFloat(r.grantAmt).toLocaleString()}` : <span className="text-slate-300 font-normal">NT$ 0</span>}
                           </td>
                           <td className="p-4 text-center no-print">
                             <div className="flex items-center justify-center gap-2">
