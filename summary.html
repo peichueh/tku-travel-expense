@@ -23,7 +23,7 @@
       const { useState, useMemo, useEffect } = React;
 
       // 您的 Google Apps Script Web App URL
-      const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbx7e8CwJg48lkZBIFjEUA3rxuNXwr9Ujfj8daNOrZFBuQO_PMKY9knokvgUoPdaEh7SrA/exec";
+      const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbzgyLPU8fthO-jmtcIUfhBtUef7JoJASZgP435rksTm0MLDh9bepESO3noXtqRE1rCBVA/exec";
 
       function App() {
         const [records, setRecords] = useState([]);
@@ -47,7 +47,7 @@
           grantAmt: 0
         });
 
-        // 核心功能 1：從 Google 試算表抓取最新資料
+        // 核心 1：從 Google Sheets 載入資料
         const fetchSheetData = async () => {
           setIsLoading(true);
           try {
@@ -57,42 +57,40 @@
               setRecords(json.data);
               localStorage.setItem("TKU_CHEM_PAPERS_V3", JSON.stringify(json.data));
             } else {
-              throw new Error("回傳格式不符");
+              throw new Error("試算表回傳格式異常");
             }
           } catch (err) {
-            console.warn("無法從 Google 試算表讀取，改用本地快取", err);
+            console.warn("連線 Google 試算表失敗，載入本機暫存", err);
             const saved = localStorage.getItem("TKU_CHEM_PAPERS_V3");
-            if (saved) {
-              setRecords(JSON.parse(saved));
-            }
+            if (saved) setRecords(JSON.parse(saved));
           } finally {
             setIsLoading(false);
           }
         };
 
-        // 網頁開啟時自動載入 Google 試算表
+        // 開啟時載入
         useEffect(() => {
           fetchSheetData();
         }, []);
 
-        // 核心功能 2：將異動同步回傳給 Google 試算表
-        const syncAllToGoogleSheet = async (updatedRecords) => {
+        // 核心 2：發送至 Google 試算表（改用 text/plain 避免 CORS 吃掉資料）
+        const sendToGoogleSheet = async (payload) => {
           setIsSyncing(true);
           try {
             await fetch(GOOGLE_SHEET_API_URL, {
               method: "POST",
-              mode: "no-cors",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                action: "syncAll",
-                data: updatedRecords
-              })
+              headers: { "Content-Type": "text/plain;charset=utf-8" },
+              body: JSON.stringify(payload)
             });
-            console.log("已成功發送同步請求至 Google 試算表");
+            console.log("已成功送出資料至 Google 試算表");
           } catch (e) {
             console.error("同步至 Google 試算表失敗", e);
+            alert("寫入 Google 試算表時發生錯誤，請確認網路連線！");
           } finally {
-            setTimeout(() => setIsSyncing(false), 2000);
+            setTimeout(() => {
+              setIsSyncing(false);
+              fetchSheetData(); // 寫入後自動重新拉取最新資料確認
+            }, 1500);
           }
         };
 
@@ -162,34 +160,50 @@
             return alert("請填寫發表人姓名與發表論文題目！🌿");
           }
 
-          let newRecords = [];
           if (editingId !== null) {
-            newRecords = records.map(r => r.id === editingId ? { ...r, ...formData, grantAmt: parseFloat(formData.grantAmt) || 0 } : r);
+            // 修改：採用批次覆蓋同步
+            const newRecords = records.map(r => r.id === editingId ? { ...r, ...formData, grantAmt: parseFloat(formData.grantAmt) || 0 } : r);
+            setRecords(newRecords);
+            sendToGoogleSheet({
+              action: "syncAll",
+              data: newRecords
+            });
           } else {
+            // 新增：直接呼叫後端單筆新增
             const newEntry = {
-              id: "item_" + Date.now(),
-              timestamp: new Date().toLocaleString("zh-TW", { timeZone: "Asia/Taipei" }),
-              ...formData,
+              category: formData.category,
+              name: formData.name,
+              type: formData.type,
+              idNumber: formData.idNumber,
+              confDate: formData.confDate,
+              organizer: formData.organizer,
+              confName: formData.confName,
+              paperTitle: formData.paperTitle,
               grantAmt: parseFloat(formData.grantAmt) || 0
             };
-            newRecords = [newEntry, ...records];
+            
+            // 先在畫面呈現
+            setRecords([{ id: "temp_" + Date.now(), ...newEntry }, ...records]);
+            
+            // 送出至 Google 試算表
+            sendToGoogleSheet({
+              action: "create",
+              ...newEntry
+            });
           }
 
-          setRecords(newRecords);
-          localStorage.setItem("TKU_CHEM_PAPERS_V3", JSON.stringify(newRecords));
           setIsModalOpen(false);
-
-          // 同步寫入 Google 試算表
-          syncAllToGoogleSheet(newRecords);
         };
 
         // 刪除紀錄
         const handleDeleteRecord = (id) => {
-          if (confirm("確定要刪除這筆成果紀錄嗎？此動作將同步從 Google 試算表移除。")) {
+          if (confirm("確定要刪除這筆發表成果嗎？此動作將同步從 Google 試算表移除。")) {
             const newRecords = records.filter(r => r.id !== id);
             setRecords(newRecords);
-            localStorage.setItem("TKU_CHEM_PAPERS_V3", JSON.stringify(newRecords));
-            syncAllToGoogleSheet(newRecords);
+            sendToGoogleSheet({
+              action: "syncAll",
+              data: newRecords
+            });
           }
         };
 
@@ -270,7 +284,7 @@
               </p>
             </div>
 
-            {/* 統計儀表板 (含募款補助總額) */}
+            {/* 統計儀表板 */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8 no-print">
               <div className="bg-white rounded-2xl p-5 border-2 border-emerald-100 shadow-sm flex items-center justify-between">
                 <div>
